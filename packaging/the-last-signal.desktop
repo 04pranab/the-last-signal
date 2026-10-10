@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=THE LAST SIGNAL
+Comment=Survive the abandoned research station
+Exec=the-last-signal
+Icon=the-last-signal
+Terminal=false
+Categories=Game;ActionGame;
+StartupNotify=true
