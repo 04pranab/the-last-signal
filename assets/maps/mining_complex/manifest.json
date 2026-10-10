@@ -1,0 +1,76 @@
+{
+ "floors": {
+  "dirt_0": "floor/dirt_0.png",
+  "dirt_1": "floor/dirt_1.png",
+  "dirt_2": "floor/dirt_2.png",
+  "dirt_3": "floor/dirt_3.png",
+  "mine_dark": "floor/mine_dark.png",
+  "mine_hazard": "floor/mine_hazard.png",
+  "mine_metal": "floor/mine_metal.png",
+  "mine_wood": "floor/mine_wood.png",
+  "rock": "floor/rock.png"
+ },
+ "sprites": {
+  "beam": {
+   "file": "props/beam.png",
+   "group": "props",
+   "h": 64,
+   "w": 64
+  },
+  "drill": {
+   "file": "machinery/drill.png",
+   "group": "machinery",
+   "h": 128,
+   "w": 128
+  },
+  "lantern": {
+   "file": "decorations/lantern.png",
+   "group": "decorations",
+   "h": 64,
+   "w": 64
+  },
+  "ore_cart": {
+   "file": "props/ore_cart.png",
+   "group": "props",
+   "h": 64,
+   "w": 128
+  },
+  "ore_pile": {
+   "file": "props/ore_pile.png",
+   "group": "props",
+   "h": 64,
+   "w": 64
+  },
+  "pump": {
+   "file": "machinery/pump.png",
+   "group": "machinery",
+   "h": 128,
+   "w": 128
+  },
+  "rails_h": {
+   "file": "props/rails_h.png",
+   "group": "props",
+   "h": 64,
+   "w": 64
+  },
+  "tnt_crate": {
+   "file": "props/tnt_crate.png",
+   "group": "props",
+   "h": 64,
+   "w": 64
+  },
+  "wall_face": {
+   "file": "walls/wall_face.png",
+   "group": "walls",
+   "h": 64,
+   "w": 64
+  },
+  "wall_top": {
+   "file": "walls/wall_top.png",
+   "group": "walls",
+   "h": 64,
+   "w": 64
+  }
+ },
+ "tile_size": 64
+}

@@ -1,0 +1,463 @@
+{
+ "floors": {
+  "dark": "floor/dark.png",
+  "hazard": "floor/hazard.png",
+  "lightwood": "floor/lightwood.png",
+  "medical": "floor/medical.png",
+  "server": "floor/server.png",
+  "storage": "floor/storage.png",
+  "teal_0": "floor/teal_0.png",
+  "teal_1": "floor/teal_1.png",
+  "teal_2": "floor/teal_2.png",
+  "teal_3": "floor/teal_3.png",
+  "teal_4": "floor/teal_4.png",
+  "white": "floor/white.png",
+  "wood_0": "floor/wood_0.png",
+  "wood_1": "floor/wood_1.png",
+  "wood_2": "floor/wood_2.png",
+  "wood_3": "floor/wood_3.png",
+  "wood_4": "floor/wood_4.png",
+  "wood_5": "floor/wood_5.png"
+ },
+ "sprites": {
+  "archive_idle": {
+   "file": "terminals/archive_idle.png",
+   "group": "terminals",
+   "h": 64,
+   "w": 64
+  },
+  "archive_read": {
+   "file": "terminals/archive_read.png",
+   "group": "terminals",
+   "h": 64,
+   "w": 64
+  },
+  "barrel_orange": {
+   "file": "props/barrel_orange.png",
+   "group": "props",
+   "h": 64,
+   "w": 64
+  },
+  "barrel_teal": {
+   "file": "props/barrel_teal.png",
+   "group": "props",
+   "h": 64,
+   "w": 64
+  },
+  "battery_bank": {
+   "file": "machinery/battery_bank.png",
+   "group": "machinery",
+   "h": 64,
+   "w": 128
+  },
+  "bed_green_double": {
+   "file": "furniture/bed_green_double.png",
+   "group": "furniture",
+   "h": 211,
+   "w": 128
+  },
+  "bed_orange_double": {
+   "file": "furniture/bed_orange_double.png",
+   "group": "furniture",
+   "h": 211,
+   "w": 128
+  },
+  "bed_orange_single": {
+   "file": "furniture/bed_orange_single.png",
+   "group": "furniture",
+   "h": 211,
+   "w": 64
+  },
+  "bush_green": {
+   "file": "decorations/bush_green.png",
+   "group": "decorations",
+   "h": 106,
+   "w": 107
+  },
+  "bush_orange": {
+   "file": "decorations/bush_orange.png",
+   "group": "decorations",
+   "h": 117,
+   "w": 128
+  },
+  "camera_console": {
+   "file": "terminals/camera_console.png",
+   "group": "terminals",
+   "h": 64,
+   "w": 64
+  },
+  "centrifuge": {
+   "file": "machinery/centrifuge.png",
+   "group": "machinery",
+   "h": 64,
+   "w": 64
+  },
+  "chair_blue": {
+   "file": "furniture/chair_blue.png",
+   "group": "furniture",
+   "h": 43,
+   "w": 48
+  },
+  "chair_green": {
+   "file": "furniture/chair_green.png",
+   "group": "furniture",
+   "h": 50,
+   "w": 55
+  },
+  "console_security_idle": {
+   "file": "terminals/console_security_idle.png",
+   "group": "terminals",
+   "h": 64,
+   "w": 64
+  },
+  "console_security_read": {
+   "file": "terminals/console_security_read.png",
+   "group": "terminals",
+   "h": 64,
+   "w": 64
+  },
+  "crate_metal": {
+   "file": "props/crate_metal.png",
+   "group": "props",
+   "h": 64,
+   "w": 64
+  },
+  "crate_wood_b": {
+   "file": "props/crate_wood_b.png",
+   "group": "props",
+   "h": 64,
+   "w": 64
+  },
+  "crate_wood_large": {
+   "file": "props/crate_wood_large.png",
+   "group": "props",
+   "h": 64,
+   "w": 64
+  },
+  "crate_wood_small": {
+   "file": "props/crate_wood_small.png",
+   "group": "props",
+   "h": 64,
+   "w": 64
+  },
+  "crate_wood_small_b": {
+   "file": "props/crate_wood_small_b.png",
+   "group": "props",
+   "h": 64,
+   "w": 64
+  },
+  "decal_blood_0": {
+   "file": "decorations/decal_blood_0.png",
+   "group": "decorations",
+   "h": 64,
+   "w": 64
+  },
+  "decal_blood_1": {
+   "file": "decorations/decal_blood_1.png",
+   "group": "decorations",
+   "h": 64,
+   "w": 64
+  },
+  "decal_blood_2": {
+   "file": "decorations/decal_blood_2.png",
+   "group": "decorations",
+   "h": 64,
+   "w": 64
+  },
+  "decal_crack_a": {
+   "file": "decorations/decal_crack_a.png",
+   "group": "decorations",
+   "h": 64,
+   "w": 64
+  },
+  "decal_crack_b": {
+   "file": "decorations/decal_crack_b.png",
+   "group": "decorations",
+   "h": 64,
+   "w": 64
+  },
+  "decal_scorch": {
+   "file": "decorations/decal_scorch.png",
+   "group": "decorations",
+   "h": 64,
+   "w": 64
+  },
+  "decal_stain": {
+   "file": "decorations/decal_stain.png",
+   "group": "decorations",
+   "h": 64,
+   "w": 64
+  },
+  "desk_wood": {
+   "file": "furniture/desk_wood.png",
+   "group": "furniture",
+   "h": 64,
+   "w": 192
+  },
+  "door_closed": {
+   "file": "doors/door_closed.png",
+   "group": "doors",
+   "h": 64,
+   "w": 64
+  },
+  "door_open": {
+   "file": "doors/door_open.png",
+   "group": "doors",
+   "h": 64,
+   "w": 64
+  },
+  "electrical_panel": {
+   "file": "machinery/electrical_panel.png",
+   "group": "machinery",
+   "h": 64,
+   "w": 64
+  },
+  "filing_cabinet": {
+   "file": "furniture/filing_cabinet.png",
+   "group": "furniture",
+   "h": 64,
+   "w": 64
+  },
+  "generator_off": {
+   "file": "machinery/generator_off.png",
+   "group": "machinery",
+   "h": 128,
+   "w": 128
+  },
+  "generator_on": {
+   "file": "machinery/generator_on.png",
+   "group": "machinery",
+   "h": 128,
+   "w": 128
+  },
+  "holo_table": {
+   "file": "machinery/holo_table.png",
+   "group": "machinery",
+   "h": 128,
+   "w": 128
+  },
+  "lab_burner": {
+   "file": "props/lab_burner.png",
+   "group": "props",
+   "h": 64,
+   "w": 64
+  },
+  "lab_sink": {
+   "file": "props/lab_sink.png",
+   "group": "props",
+   "h": 64,
+   "w": 64
+  },
+  "lab_stove": {
+   "file": "props/lab_stove.png",
+   "group": "props",
+   "h": 64,
+   "w": 64
+  },
+  "lab_table": {
+   "file": "furniture/lab_table.png",
+   "group": "furniture",
+   "h": 64,
+   "w": 64
+  },
+  "lab_table_long": {
+   "file": "furniture/lab_table_long.png",
+   "group": "furniture",
+   "h": 64,
+   "w": 128
+  },
+  "locker": {
+   "file": "furniture/locker.png",
+   "group": "furniture",
+   "h": 64,
+   "w": 64
+  },
+  "med_scanner": {
+   "file": "machinery/med_scanner.png",
+   "group": "machinery",
+   "h": 64,
+   "w": 128
+  },
+  "med_station": {
+   "file": "terminals/med_station.png",
+   "group": "terminals",
+   "h": 64,
+   "w": 64
+  },
+  "medical_cabinet": {
+   "file": "furniture/medical_cabinet.png",
+   "group": "furniture",
+   "h": 64,
+   "w": 64
+  },
+  "medical_idle": {
+   "file": "terminals/medical_idle.png",
+   "group": "terminals",
+   "h": 64,
+   "w": 64
+  },
+  "medical_read": {
+   "file": "terminals/medical_read.png",
+   "group": "terminals",
+   "h": 64,
+   "w": 64
+  },
+  "pickup_ammo": {
+   "file": "props/pickup_ammo.png",
+   "group": "props",
+   "h": 64,
+   "w": 64
+  },
+  "pickup_medkit": {
+   "file": "props/pickup_medkit.png",
+   "group": "props",
+   "h": 64,
+   "w": 64
+  },
+  "pillar": {
+   "file": "furniture/pillar.png",
+   "group": "furniture",
+   "h": 64,
+   "w": 64
+  },
+  "pipe_hazard": {
+   "file": "machinery/pipe_hazard.png",
+   "group": "machinery",
+   "h": 64,
+   "w": 64
+  },
+  "pipe_straight": {
+   "file": "machinery/pipe_straight.png",
+   "group": "machinery",
+   "h": 64,
+   "w": 64
+  },
+  "pipe_valve": {
+   "file": "machinery/pipe_valve.png",
+   "group": "machinery",
+   "h": 64,
+   "w": 64
+  },
+  "rug_green": {
+   "file": "decorations/rug_green.png",
+   "group": "decorations",
+   "h": 64,
+   "w": 64
+  },
+  "rug_orange": {
+   "file": "decorations/rug_orange.png",
+   "group": "decorations",
+   "h": 64,
+   "w": 64
+  },
+  "server_rack_a": {
+   "file": "machinery/server_rack_a.png",
+   "group": "machinery",
+   "h": 64,
+   "w": 64
+  },
+  "server_rack_b": {
+   "file": "machinery/server_rack_b.png",
+   "group": "machinery",
+   "h": 64,
+   "w": 64
+  },
+  "server_rack_c": {
+   "file": "machinery/server_rack_c.png",
+   "group": "machinery",
+   "h": 64,
+   "w": 64
+  },
+  "shelf": {
+   "file": "furniture/shelf.png",
+   "group": "furniture",
+   "h": 64,
+   "w": 64
+  },
+  "signal_core_off": {
+   "file": "machinery/signal_core_off.png",
+   "group": "machinery",
+   "h": 128,
+   "w": 128
+  },
+  "signal_core_on": {
+   "file": "machinery/signal_core_on.png",
+   "group": "machinery",
+   "h": 128,
+   "w": 128
+  },
+  "sofa_green": {
+   "file": "furniture/sofa_green.png",
+   "group": "furniture",
+   "h": 59,
+   "w": 176
+  },
+  "table_round": {
+   "file": "furniture/table_round.png",
+   "group": "furniture",
+   "h": 43,
+   "w": 52
+  },
+  "terminal_corrupt": {
+   "file": "terminals/terminal_corrupt.png",
+   "group": "terminals",
+   "h": 64,
+   "w": 64
+  },
+  "terminal_dead": {
+   "file": "terminals/terminal_dead.png",
+   "group": "terminals",
+   "h": 64,
+   "w": 64
+  },
+  "terminal_idle": {
+   "file": "terminals/terminal_idle.png",
+   "group": "terminals",
+   "h": 64,
+   "w": 64
+  },
+  "terminal_read": {
+   "file": "terminals/terminal_read.png",
+   "group": "terminals",
+   "h": 64,
+   "w": 64
+  },
+  "transmitter_off": {
+   "file": "machinery/transmitter_off.png",
+   "group": "machinery",
+   "h": 192,
+   "w": 192
+  },
+  "transmitter_on": {
+   "file": "machinery/transmitter_on.png",
+   "group": "machinery",
+   "h": 192,
+   "w": 192
+  },
+  "wall_face": {
+   "file": "walls/wall_face.png",
+   "group": "walls",
+   "h": 64,
+   "w": 64
+  },
+  "wall_top": {
+   "file": "walls/wall_top.png",
+   "group": "walls",
+   "h": 64,
+   "w": 64
+  },
+  "weapon_crate_closed": {
+   "file": "terminals/weapon_crate_closed.png",
+   "group": "terminals",
+   "h": 64,
+   "w": 64
+  },
+  "weapon_crate_open": {
+   "file": "terminals/weapon_crate_open.png",
+   "group": "terminals",
+   "h": 64,
+   "w": 64
+  }
+ },
+ "tile_size": 64
+}
