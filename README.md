@@ -139,10 +139,6 @@ python tools/build_assets.py /path/to/extracted/asset [/path/to/second/asset/roo
 
 See [CREDITS.md](CREDITS.md) for asset attribution and [assets/licenses/](assets/licenses/) for the retained third-party license files. The game source code is licensed under the MIT License; third-party art, fonts, and audio remain subject to their own applicable licenses.
 
-## Release notes
-
-See [RELEASE_NOTES.md](RELEASE_NOTES.md) for the v2.0.0 change summary.
-
 ---
 
 **Issues and contributions:** please use the repository's GitHub Issues and Pull Requests.
