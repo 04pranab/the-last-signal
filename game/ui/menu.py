@@ -41,13 +41,19 @@ class MainMenu:
         self.t = 0.0
         cx = 640
         self.name = TextField((cx - 170, 270, 340, 46), app.player_name, 16, False, "Callsign")
-        self.map_btn = Button((cx - 170, 590, 340, 40), self._map_label(), self._cycle_map, size=16)
+        self.map_btn = Button((cx - 170, 584, 340, 40), self._map_label(), self._cycle_map, size=16)
         self.buttons = [
             Button((cx - 170, 340, 340, 52), "SINGLE PLAYER", app.start_single_player, BTN_GREEN),
             Button((cx - 170, 402, 340, 52), "CREATE GAME", lambda: app.goto(CreateScreen(app))),
             Button((cx - 170, 464, 340, 52), "FIND LAN GAMES", app.open_browser),
-            Button((cx - 170, 526, 340, 52), "QUIT", app.quit, BTN_RED),
+            Button((cx - 170, 526, 164, 46), "SETTINGS", self._open_settings),
+            Button((cx + 6, 526, 164, 46), "QUIT", app.quit, BTN_RED),
         ]
+
+    def _open_settings(self):
+        from .settings_screen import SettingsScreen
+        self.app.set_name(self.name.text)
+        self.app.goto(SettingsScreen(self.app, self))
 
     def _map_label(self):
         from ..maps import MAP_REGISTRY

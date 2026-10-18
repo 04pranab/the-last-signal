@@ -63,7 +63,7 @@ emergency transmitter.
 The timer is 40 minutes. Going down is not the end: you respawn at the hub after 8 seconds.
 
 ## Controls
-| Key | Action |
+| Key (default; all rebindable in Settings) | Action |
 |---|---|
 | W A S D / arrows | Move |
 | Mouse | Aim |
@@ -76,6 +76,15 @@ The timer is 40 minutes. Going down is not the end: you respawn at the hub after
 | M | Larger minimap |
 | F11 | Toggle fullscreen (starts fullscreen and scales to your screen) |
 | ESC | Pause menu / close panels |
+
+## Settings (sound and keys)
+Main menu or pause menu -> **Settings**:
+* **Sound on/off** (mute everything), master volume, and separate volumes for menu sounds, weapons and hits,
+  doors and machines, and **horror ambience** (heartbeat, whispers, groans, jumpscare stinger). Horror ambience can be switched off on its own.
+* **Every control is rebindable**: click a row, press the new key. If the key is already used the two actions swap.
+  Arrow keys always work for movement; ESC (pause) is fixed. **Reset controls** restores defaults.
+* Fullscreen toggle. Settings are saved per user (`%APPDATA%\the_last_signal` on Windows, `~/.config/the_last_signal` on Linux).
+Default volumes are low and the random ambient sounds are rare (about one a minute); remote players' gunfire is only heard nearby.
 
 ## Weapons
 | Weapon | Notes |
@@ -95,11 +104,24 @@ Zombie kinds: walker, fast runner, tough brute. New zombies keep spawning, and g
   **rifts** (a random player is teleported across the map), **jumpscares** and **phantoms** (hallucinations + whispers).
   Dread audio is synthesised at runtime: heartbeat speeds up near enemies.
 
-## Maps
-1. **Research Station A-17** (bright labs, server wing, archive, comms).
-2. **Underground Mining Complex** (dark tunnels with lantern light: ore carts, rails, drills, pump house, blast vault).
-Choose the map on the main menu (single player) or in Create Game. Both use the same procedural framework; a map is one
-class implementing `BaseMapGenerator`, so maps 3-5 can be added the same way.
+## Maps (choose on the main menu for single player, or in Create Game)
+All maps are generated from a seed, validated (everything reachable) and packed densely: 40-50 rooms in a compact area,
+extra shortcut links between neighbouring rooms, and zombies, loot caches and ammo/medkit pickups along every path, so
+travelling between rooms is never empty running.
+1. **Research Station A-17**: bright labs, server wing, archive, communications.
+2. **Underground Mining Complex**: dark tunnels with lantern light, ore carts, rails, drills, pump house, blast vault.
+3. **The Dead Zone (open world)**: ~40 walled outposts scattered over open grass and wasteland, linked by roads, with
+   forests, rocks and car wrecks. Nothing forces a route.
+   * **Day and night** (7-minute cycle): bright days with long sight, dark nights with a short light radius, more and
+     keener zombies, orange dusk and dawn. The time of day is shown top right.
+   * **Campfires**: 6 outdoor camps plus one in the Survivor Camp. Press the interact key to light one: it becomes your
+     **respawn point** and heals 30 HP (once a minute).
+   * **Supply drops**: every 2-3 minutes a crate lands somewhere on the map with a weapon, ammo and a medkit. It is marked
+     on the world map, with a beam of light and an edge arrow showing distance; zombies are drawn to it. Race for it.
+   * **Roaming zombies**: idle zombies wander the countryside in packs instead of standing still.
+   * **Discovery**: entering a place for the first time shows its name. Press the map key (**M**) for the **world map** with
+     the explored area, named places, campfires, supply drops and your crew.
+Each map is one class implementing `BaseMapGenerator`, so more maps can be added the same way.
 
 ## Architecture (short)
 * `game/maps/` – `BaseMapGenerator` framework (rooms, corridors, doors, walls, retry/validate loop), `validator.py`,
@@ -116,7 +138,7 @@ class implementing `BaseMapGenerator`, so maps 3-5 can be added the same way.
 ## Tools / tests
 ```bash
 pip install pytest
-python -m pytest tests -q          # 118 tests: 100 seeds, validator, protocol abuse, collision, rules, multiplayer
+python -m pytest tests -q          # 126 tests: 100 seeds, validator, protocol abuse, collision, rules, multiplayer
 python server.py --auto-accept     # optional headless dedicated server
 python client.py --connect 127.0.0.1:47201 --name Bot   # headless debug client
 python tools/build_assets.py /path/to/extracted/asset [/path/to/second/asset/root]   # rebuild assets (needs Pillow)

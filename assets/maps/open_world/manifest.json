@@ -1,0 +1,100 @@
+{
+ "floors": {
+  "concrete": "floor/concrete.png",
+  "grass_0": "floor/grass_0.png",
+  "grass_1": "floor/grass_1.png",
+  "grass_2": "floor/grass_2.png",
+  "grass_3": "floor/grass_3.png",
+  "ow_dark": "floor/ow_dark.png",
+  "ow_metal": "floor/ow_metal.png",
+  "ow_wood": "floor/ow_wood.png",
+  "road_0": "floor/road_0.png",
+  "road_1": "floor/road_1.png",
+  "road_2": "floor/road_2.png",
+  "road_3": "floor/road_3.png",
+  "wasteland_0": "floor/wasteland_0.png",
+  "wasteland_1": "floor/wasteland_1.png",
+  "wasteland_2": "floor/wasteland_2.png"
+ },
+ "sprites": {
+  "camp_off": {
+   "file": "terminals/camp_off.png",
+   "group": "terminals",
+   "h": 64,
+   "w": 64
+  },
+  "camp_on": {
+   "file": "terminals/camp_on.png",
+   "group": "terminals",
+   "h": 64,
+   "w": 64
+  },
+  "car_wreck": {
+   "file": "props/car_wreck.png",
+   "group": "props",
+   "h": 64,
+   "w": 128
+  },
+  "dead_tree": {
+   "file": "decorations/dead_tree.png",
+   "group": "decorations",
+   "h": 64,
+   "w": 64
+  },
+  "pickup_supply": {
+   "file": "props/pickup_supply.png",
+   "group": "props",
+   "h": 64,
+   "w": 64
+  },
+  "rock_a": {
+   "file": "decorations/rock_a.png",
+   "group": "decorations",
+   "h": 64,
+   "w": 64
+  },
+  "rock_b": {
+   "file": "decorations/rock_b.png",
+   "group": "decorations",
+   "h": 64,
+   "w": 128
+  },
+  "sandbags": {
+   "file": "props/sandbags.png",
+   "group": "props",
+   "h": 64,
+   "w": 64
+  },
+  "tent": {
+   "file": "props/tent.png",
+   "group": "props",
+   "h": 128,
+   "w": 128
+  },
+  "tree_a": {
+   "file": "decorations/tree_a.png",
+   "group": "decorations",
+   "h": 128,
+   "w": 128
+  },
+  "tree_b": {
+   "file": "decorations/tree_b.png",
+   "group": "decorations",
+   "h": 128,
+   "w": 128
+  },
+  "wall_face": {
+   "file": "walls/wall_face.png",
+   "group": "walls",
+   "h": 64,
+   "w": 64
+  },
+  "wall_top": {
+   "file": "walls/wall_top.png",
+   "group": "walls",
+   "h": 64,
+   "w": 64
+  }
+ },
+ "tile_size": 64
+}

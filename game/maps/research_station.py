@@ -38,8 +38,15 @@ class ResearchStationGenerator(BaseMapGenerator):
     FLOORS = FLOORS
     map_id = "research_station"
     map_name = "Research Station A-17"
-    width = 200
-    height = 130
+    width = 180
+    height = 120
+    MIN_ROOMS = 32
+
+    def _build(self, rng, seed):
+        m = super()._build(rng, seed)
+        m.meta["room_range"] = [30, 60]
+        m.meta["zombie_cap"] = 56
+        return m
 
     def required_kinds(self):
         return {"hub", "comms", "generator", "server_wing", "archive", "security", "medical", "restricted", "main_lab"}
@@ -65,14 +72,14 @@ class ResearchStationGenerator(BaseMapGenerator):
         plan.append(spec("medical", rng.randint(11, 16), rng.randint(9, 12)))
         plan.append(spec("restricted", rng.randint(9, 12), rng.randint(7, 9)))
         for _ in range(rng.randint(1, 2)):
-            plan.append(spec("main_lab", rng.randint(15, 22), rng.randint(10, 15)))
-        for _ in range(rng.randint(3, 5)):
-            plan.append(spec("lab", rng.randint(8, 14), rng.randint(6, 10)))
-        for _ in range(rng.randint(3, 5)):
-            plan.append(spec("storage", rng.randint(8, 14), rng.randint(6, 12)))
-        for _ in range(rng.randint(2, 3)):
-            plan.append(spec("maintenance", rng.randint(7, 11), rng.randint(5, 8)))
-        target = rng.randint(30, 40)
+            plan.append(spec("main_lab", rng.randint(14, 20), rng.randint(10, 14)))
+        for _ in range(rng.randint(4, 6)):
+            plan.append(spec("lab", rng.randint(8, 13), rng.randint(6, 9), gap=2))
+        for _ in range(rng.randint(4, 6)):
+            plan.append(spec("storage", rng.randint(8, 12), rng.randint(6, 10), gap=2))
+        for _ in range(rng.randint(3, 4)):
+            plan.append(spec("maintenance", rng.randint(7, 10), rng.randint(5, 8), gap=2))
+        target = rng.randint(42, 52)
         while len(plan) < target:
             kind = rng.choice(["quarters", "quarters", "quarters", "lab", "storage"])
             if kind == "quarters":

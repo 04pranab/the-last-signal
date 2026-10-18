@@ -52,6 +52,16 @@ class WorldRenderer:
     def _floor_surface(self, x: int, y: int, zone: int) -> pygame.Surface:
         key = self.room_floor.get(zone, "teal")
         fl = self.lib.floors
+        if "grass_0" in fl:                       # open world ground
+            if zone == 255:
+                return fl["road_%d" % ((x * 7 + y * 3) % 4)]
+            if zone == 0:
+                s1 = ((x // 2) * 73856093 ^ (y // 2) * 19349663 ^ self.m.seed) % 100
+                s2 = ((x // 7) * 83492791 ^ (y // 7) * 2654435761 ^ self.m.seed) % 100
+                h = 0.3 * s1 + 0.7 * s2
+                if h < 50:
+                    return fl["grass_%d" % ((x * 3 + y * 5) % 4)]
+                return fl["wasteland_%d" % ((x + y * 2) % 3)]
         if zone == 0 and "dirt_0" in fl:
             return fl["dirt_%d" % ((x * 3 + y * 5 + (x * y) % 3) % 4)]
         if key.startswith("teal") or zone == 0:
@@ -220,6 +230,8 @@ class WorldRenderer:
             return "signal_core_on" if state.get("core") else "signal_core_off"
         if o.kind == "transmitter":
             return "transmitter_on" if (state.get("power") and state.get("core")) else "transmitter_off"
+        if o.kind == "camp":
+            return "camp_on" if o.id in state.get("camps", ()) else "camp_off"
         if o.kind == "weapon_crate":
             return "weapon_crate_open" if o.id in state.get("opened", ()) else "weapon_crate_closed"
         if o.kind == "med_station":
@@ -255,7 +267,19 @@ class WorldRenderer:
                 r = pygame.Rect(sx - 3, sy - 3, o.w * TILE + 6, o.h * TILE + 6)
                 pygame.draw.rect(screen, (255, 255, 255), r, 2, border_radius=6)
 
-    def draw_darkness(self, screen, lights_out: bool, flicker: int = 0) -> None:
+    def draw_darkness(self, screen, lights_out: bool, flicker: int = 0, daylight: float = None) -> None:
+        if daylight is not None and not lights_out:
+            # open world: bright days, dark nights, orange dusk/dawn
+            alpha = int(self.ambient * (1.0 - daylight) ** 1.2) + (flicker if daylight < 0.3 else 0)
+            if alpha > 6:
+                rad = int(self.light_r * (1.0 + 1.3 * daylight))
+                screen.blit(self.lib.darkness(screen.get_size(), rad, max(8, min(250, alpha // 4 * 4))), (0, 0))
+            if 0.12 < daylight < 0.78:
+                k = 1.0 - abs(daylight - 0.45) / 0.33
+                tint = pygame.Surface(screen.get_size(), pygame.SRCALPHA)
+                tint.fill((255, 120, 40, int(44 * max(0.0, k))))
+                screen.blit(tint, (0, 0))
+            return
         rad = int(LIGHT_RADIUS_DARK if lights_out else self.light_r)
         alpha = 250 if lights_out else max(200, min(252, self.ambient + flicker))
         dark = self.lib.darkness(screen.get_size(), rad, alpha)
@@ -284,6 +308,11 @@ class WorldRenderer:
                 g = lib.glow(90, (110, 50, 20))
             elif o.kind == "transmitter" and state.get("power") and state.get("core"):
                 g = lib.glow(150, (30, 110, 120))
+            elif o.kind == "camp" and o.id in state.get("camps", ()):
+                fl = 0.8 + 0.2 * math.sin(t * 9 + o.x)
+                g = lib.glow(150, (int(200 * fl), int(110 * fl), int(40 * fl)))
+            elif o.kind == "camp":
+                g = lib.glow(60, (60, 40, 20))
             elif o.kind == "med_station":
                 g = lib.glow(80, (20, 90, 40))
             elif o.kind == "weapon_crate" and o.id not in state.get("opened", ()):

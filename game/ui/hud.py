@@ -62,7 +62,7 @@ class Hud:
             self.btn_close.handle(e, self.app.audio)
             return True
         if s.popup:
-            if (e.type == pygame.KEYDOWN and e.key in (pygame.K_e, pygame.K_ESCAPE, pygame.K_RETURN, pygame.K_SPACE)) or \
+            if (e.type == pygame.KEYDOWN and e.key in (self.app.settings.keys["interact"], pygame.K_ESCAPE, pygame.K_RETURN, pygame.K_SPACE)) or \
                     (e.type == pygame.MOUSEBUTTONDOWN):
                 s.popup = None
                 return True
@@ -115,8 +115,25 @@ class Hud:
         draw_text(screen, lib, f"{net.latency_ms} ms" if ok else "NO SIGNAL", (rr.x + 42, rr.y + 46), 14)
         pcount = sum(1 for p in s.remote.values() if p.connected and p.pid != s.pid) + 1
         draw_text(screen, lib, f"{pcount} online", (rr.right - 18, rr.y + 46), 14, right=True)
+        dl = s.daylight()
+        if dl is not None:
+            from .. import daynight
+            lab = daynight.label(s.clock())
+            col = {"DAY": (255, 230, 140), "DUSK": (255, 170, 90), "DAWN": (255, 190, 120), "NIGHT": (130, 160, 255)}[lab]
+            draw_text(screen, lib, lab, (rr.right - 18, rr.y + 10), 15, col, right=True)
+        if s.discover:
+            a = max(0.0, min(1.0, (3.2 - (time.time() - s.discover["t"])) / 1.2))
+            t1 = lib.text("DISCOVERED", 13, (150, 200, 230))
+            t2 = lib.text(s.discover["text"].upper(), 28, (255, 235, 170), narrow=False)
+            t1.set_alpha(int(255 * a))
+            t2.set_alpha(int(255 * a))
+            screen.blit(t1, t1.get_rect(center=(w // 2, 118)))
+            screen.blit(t2, t2.get_rect(center=(w // 2, 146)))
         # --- minimap
-        self._minimap(screen, s, w, h)
+        if self.minimap_big:
+            self._world_map(screen, s, w, h)
+        else:
+            self._minimap(screen, s, w, h)
         self._combat_hud(screen, s, w, h)
         # --- interaction prompt
         if s.near and not s.panel and not s.popup and not s.end:
@@ -125,9 +142,14 @@ class Hud:
             box = pygame.Rect(0, 0, 360, 46)
             box.midbottom = (w // 2, h - 40)
             panel(screen, lib, box)
-            if lib.key_e:
+            if lib.key_e and self.app.settings.keys["interact"] == pygame.K_e:
                 k = pygame.transform.smoothscale(lib.key_e, (30, 30))
                 screen.blit(k, (box.x + 14, box.y + 8))
+            else:
+                kb = pygame.Rect(box.x + 12, box.y + 8, 34, 30)
+                pygame.draw.rect(screen, (230, 238, 245), kb, border_radius=6)
+                pygame.draw.rect(screen, (90, 110, 130), kb, 2, border_radius=6)
+                draw_text(screen, lib, self.app.settings.key_name("interact")[:4], kb.center, 12, (20, 30, 40), center=True)
             draw_text(screen, lib, "INTERACT", (box.x + 54, box.y + 7), 14, (140, 230, 255))
             draw_text(screen, lib, txt, (box.x + 54, box.y + 22), 15)
         # --- toasts
@@ -213,7 +235,11 @@ class Hud:
             draw_text(screen, lib, f"THE ECHO WARDEN   -   PHASE {bs['phase']}", (w // 2, br.bottom + 14), 14, (230, 190, 255), center=True)
         # first-seconds control hint
         if s.t < 14:
-            draw_text(screen, lib, "WASD move  MOUSE aim  LMB shoot  R reload  1-5/Q/wheel weapons  E interact  T chat  TAB notes", (w // 2, h - 140), 15, (200, 215, 230), center=True)
+            st = self.app.settings
+            kn = st.key_name
+            hint = (f"{kn('up')}{kn('left')}{kn('down')}{kn('right')} move   MOUSE aim   LMB shoot   {kn('reload')} reload   "
+                    f"{kn('w1')}-{kn('w5')}/{kn('weapon_next')}/wheel weapons   {kn('interact')} interact   {kn('chat')} chat   {kn('notes')} notes")
+            draw_text(screen, lib, hint, (w // 2, h - 140), 15, (200, 215, 230), center=True)
         if s.dead:
             shade = pygame.Surface((w, h), pygame.SRCALPHA)
             shade.fill((60, 0, 0, 150))
@@ -224,7 +250,7 @@ class Hud:
 
     def _minimap(self, screen, s, w, h):
         mm = s.mini
-        scale = 2 if self.minimap_big else 1
+        scale = 1
         mw, mh = mm.get_width() * scale, mm.get_height() * scale
         if scale != 1:
             surf = pygame.transform.scale(mm, (mw, mh))
@@ -244,9 +270,55 @@ class Hud:
             if s.scan.get("boss"):
                 bx, by = s.scan["boss"]
                 pygame.draw.circle(screen, (210, 100, 255), (box.x + 6 + int(bx // TILE) * scale, box.y + 6 + int(by // TILE) * scale), 4 * scale)
+        for pk in s.pickups:
+            if pk[1] == 2:
+                pygame.draw.circle(screen, (255, 215, 60), (box.x + 6 + int(pk[2] // TILE) * scale, box.y + 6 + int(pk[3] // TILE) * scale), 4)
         px, py = int(s.x // TILE), int(s.y // TILE)
         pygame.draw.circle(screen, (255, 255, 255), (box.x + 6 + px * scale, box.y + 6 + py * scale), 3 * scale)
         pygame.draw.circle(screen, (60, 160, 255), (box.x + 6 + px * scale, box.y + 6 + py * scale), 2 * scale)
+
+    def _world_map(self, screen, s, w, h):
+        """Big map (M): explored area, discovered places with names, camps, supply drops, players."""
+        lib = self.lib
+        mm = s.mini
+        scale = max(1, min(5, (w - 160) // mm.get_width(), (h - 190) // mm.get_height()))
+        mw, mh = mm.get_width() * scale, mm.get_height() * scale
+        box = pygame.Rect(0, 0, mw + 24, mh + 64)
+        box.center = (w // 2, h // 2 + 6)
+        shade = pygame.Surface((w, h), pygame.SRCALPHA)
+        shade.fill((0, 0, 0, 150))
+        screen.blit(shade, (0, 0))
+        panel(screen, lib, box, (18, 32, 48))
+        draw_text(screen, lib, "WORLD MAP", (box.centerx, box.y + 22), 20, (150, 235, 255), center=True)
+        ox, oy = box.x + 12, box.y + 44
+        screen.blit(pygame.transform.scale(mm, (mw, mh)), (ox, oy))
+        m = s.map
+        for rid in s.visited_rooms:
+            r = m.rooms[rid]
+            cx, cy = ox + int((r.x + r.w / 2) * scale), oy + int((r.y + r.h / 2) * scale)
+            img = lib.text(r.name, 12, (255, 235, 170))
+            bg = img.get_rect(center=(cx, cy)).inflate(6, 2)
+            sh = pygame.Surface(bg.size, pygame.SRCALPHA)
+            sh.fill((0, 0, 0, 150))
+            screen.blit(sh, bg)
+            screen.blit(img, img.get_rect(center=(cx, cy)))
+        for o in m.objects:
+            if o.kind == "camp" and s.discovered[min(len(s.discovered) - 1, o.y * m.width + o.x)]:
+                lit = o.id in s.state.get("camps", ())
+                pygame.draw.circle(screen, (255, 160, 50) if lit else (150, 110, 70), (ox + o.x * scale, oy + o.y * scale), 4)
+        for pk in s.pickups:
+            if pk[1] == 2:
+                pygame.draw.circle(screen, (255, 215, 60), (ox + int(pk[2] // TILE) * scale, oy + int(pk[3] // TILE) * scale), 6)
+                draw_text(screen, lib, "SUPPLY", (ox + int(pk[2] // TILE) * scale, oy + int(pk[3] // TILE) * scale - 14), 12, (255, 230, 120), center=True)
+        for p in s.remote.values():
+            if p.connected and p.seen:
+                pygame.draw.circle(screen, p.color, (ox + int(p.x // TILE) * scale, oy + int(p.y // TILE) * scale), 4)
+        pygame.draw.circle(screen, (255, 255, 255), (ox + int(s.x // TILE) * scale, oy + int(s.y // TILE) * scale), 6)
+        pygame.draw.circle(screen, (60, 160, 255), (ox + int(s.x // TILE) * scale, oy + int(s.y // TILE) * scale), 4)
+        if s.scan:
+            for zx, zy, _k in s.scan["z"]:
+                pygame.draw.circle(screen, (255, 70, 70), (ox + int(zx // TILE) * scale, oy + int(zy // TILE) * scale), 3)
+        draw_text(screen, lib, "white = you   orange = campfires   gold = supply drops   (press the map key to close)", (box.centerx, box.bottom - 16), 12, (150, 165, 180), center=True)
 
     def _popup(self, screen, entry):
         lib = self.lib

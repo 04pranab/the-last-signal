@@ -2,10 +2,12 @@
 from .generator import BaseMapGenerator, GenerationError, MapData
 from .research_station import ResearchStationGenerator
 from .mining_complex import MiningComplexGenerator
+from .open_world import OpenWorldGenerator
 
 MAP_REGISTRY = {
     ResearchStationGenerator.map_id: ResearchStationGenerator,
     MiningComplexGenerator.map_id: MiningComplexGenerator,
+    OpenWorldGenerator.map_id: OpenWorldGenerator,
     # Future maps register here (Flooded Facility, Desert Complex, Spaceport ...)
 }
 DEFAULT_MAP = ResearchStationGenerator.map_id

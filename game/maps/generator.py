@@ -327,7 +327,13 @@ class BaseMapGenerator:
     map_name = "Base Map"
     width = 200
     height = 130
-    max_attempts = 25
+    max_attempts = 80
+    MIN_ROOMS = 25
+    STUBS = True
+    CLUSTER_SD = (15, 10)       # gaussian spread of room clusters (smaller = denser)
+    FAR_RANGE = (28, 52)        # how far "far from hub" rooms (comms, generator) are
+    EXTRA_EDGE_P = 0.42         # chance of an extra loop connection between close rooms
+    EXTRA_EDGE_DIST = 52
 
     # ---- hooks
     def room_plan(self, rng: random.Random) -> List[RoomSpec]:
@@ -370,7 +376,8 @@ class BaseMapGenerator:
         plan = self.room_plan(rng)
         self._place_rooms(m, rng, plan)
         self._connect(m, rng)
-        self._stubs(m, rng)
+        if self.STUBS:
+            self._stubs(m, rng)
         self._derive_walls(m)
         m.finalize()
         ctxs: Dict[int, RoomCtx] = {}
@@ -385,7 +392,7 @@ class BaseMapGenerator:
     # ---- rooms
     def _place_rooms(self, m: MapData, rng: random.Random, plan: List[RoomSpec]) -> None:
         W, H = m.width, m.height
-        centers = [(rng.randint(30, W - 30), rng.randint(25, H - 25)) for _ in range(rng.randint(4, 6))]
+        centers = [(rng.randint(26, W - 26), rng.randint(22, H - 22)) for _ in range(rng.randint(4, 6))]
         hub_center = (W // 2 + rng.randint(-25, 25), H // 2 + rng.randint(-15, 15))
         hub_spec_done = False
         placed: List[Room] = []
@@ -398,12 +405,12 @@ class BaseMapGenerator:
                 elif spec.far_from_hub and placed and rng.random() < 0.85:
                     hub = placed[0]
                     ang_x = rng.choice((-1, 1))
-                    px = int(hub.x + hub.w / 2 + ang_x * rng.randint(45, 80) - spec.w / 2)
-                    py = int(hub.y + hub.h / 2 + rng.randint(-45, 45) - spec.h / 2)
-                elif rng.random() < 0.7:
+                    px = int(hub.x + hub.w / 2 + ang_x * rng.randint(*self.FAR_RANGE) - spec.w / 2)
+                    py = int(hub.y + hub.h / 2 + rng.randint(-self.FAR_RANGE[1] // 2, self.FAR_RANGE[1] // 2) - spec.h / 2)
+                elif rng.random() < 0.85:
                     cx, cy = rng.choice(centers)
-                    px = int(rng.gauss(cx, 22)) - spec.w // 2
-                    py = int(rng.gauss(cy, 14)) - spec.h // 2
+                    px = int(rng.gauss(cx, self.CLUSTER_SD[0])) - spec.w // 2
+                    py = int(rng.gauss(cy, self.CLUSTER_SD[1])) - spec.h // 2
                 else:
                     px = rng.randint(4, W - spec.w - 5)
                     py = rng.randint(4, H - spec.h - 5)
@@ -424,7 +431,7 @@ class BaseMapGenerator:
             if not ok:
                 if spec.kind in self.required_kinds():
                     raise GenerationError(f"could not place required room {spec.kind}")
-        if len(m.rooms) < 25:
+        if len(m.rooms) < self.MIN_ROOMS:
             raise GenerationError("too few rooms placed")
 
     def required_kinds(self) -> set:
@@ -487,10 +494,10 @@ class BaseMapGenerator:
         # extra loop edges between nearby open rooms
         extra = []
         for a in open_rooms:
-            near = sorted((b for b in open_rooms if b.id != a.id), key=lambda b: dist(a, b))[:3]
+            near = sorted((b for b in open_rooms if b.id != a.id), key=lambda b: dist(a, b))[:4]
             for b in near:
                 key = (min(a.id, b.id), max(a.id, b.id))
-                if key not in used and dist(a, b) < 70 and rng.random() < 0.22:
+                if key not in used and dist(a, b) < self.EXTRA_EDGE_DIST and rng.random() < self.EXTRA_EDGE_P:
                     used.add(key)
                     extra.append((a, b))
         # restricted rooms attach as leaves (one door; sometimes a second to another open room)

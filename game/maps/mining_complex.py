@@ -38,8 +38,8 @@ class MiningComplexGenerator(ResearchStationGenerator):
     FLOORS = FLOOR
     map_id = "mining_complex"
     map_name = "Underground Mining Complex"
-    width = 190
-    height = 130
+    width = 170
+    height = 118
 
     def _build(self, rng, seed):
         m = super()._build(rng, seed)

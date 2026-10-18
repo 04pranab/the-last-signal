@@ -16,7 +16,7 @@ def maps():
 def test_100_seeds_generate_and_validate(maps):
     for s, m in maps.items():
         assert validate_map(m) == [], f"seed {s}"
-        assert 25 <= len(m.rooms) <= 45
+        assert 30 <= len(m.rooms) <= 60
         assert m.width >= 180 and m.height >= 120
         assert len(set(m.spawns)) >= 16
 

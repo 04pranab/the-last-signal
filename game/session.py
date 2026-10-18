@@ -13,6 +13,7 @@ from .interaction import nearest_interactable
 from .maps.generator import FLOOR, WALL, MapData
 
 REVEAL_RADIUS = 9
+from . import daynight
 
 
 class Remote:
@@ -122,10 +123,13 @@ class Session:
         self.phantom: Optional[dict] = None
         self.whisper_text = ""
         self.whisper_until = 0.0
-        self.next_ambient = time.time() + 25
+        self.next_ambient = time.time() + 60
         self.next_beat = 0.0
         self.flicker = 0
         self.reserve_now = -1
+        self.visited_rooms: set = set()
+        self.discover = None
+        self.reveal_r = int(self.map.meta.get("reveal", REVEAL_RADIUS))
 
     # ----------------------------------------------------------------- helpers
     def solid_at(self, tx: int, ty: int) -> bool:
@@ -146,6 +150,18 @@ class Session:
     @property
     def interference(self) -> bool:
         return time.time() < self.intf_until
+
+    def clock(self) -> float:
+        c = self.state.get("clock", 0.0)
+        if self.state.get("phase") == "playing":
+            c += time.time() - self.state_at
+        return c
+
+    def daylight(self):
+        """None for maps without a day/night cycle, otherwise 0 (night) .. 1 (day)."""
+        if not self.map.meta.get("daynight"):
+            return None
+        return daynight.daylight(self.clock())
 
     def time_left(self) -> float:
         left = self.state.get("left", 0.0)
@@ -217,8 +233,7 @@ class Session:
         text = msg.get("text", "")
         if k == "echo":
             self.banner = {"text": "THE ECHO: " + text, "t": time.time()}
-            self.audio.play("echo")
-            self.audio.play("echo_glitch")
+            self.audio.play("echo", 0.6, 1.0)
             dur = float(msg.get("dur", 10))
             if msg.get("ev") == "ECHO_RIFT":
                 self.banner = {"text": text, "t": time.time()}
@@ -226,6 +241,12 @@ class Session:
                 self.lights_until = time.time() + dur
             elif msg.get("ev") == "SIGNAL_INTERFERENCE":
                 self.intf_until = time.time() + dur
+        elif k == "drop":
+            self.banner = {"text": text, "t": time.time()}
+            self.audio.play("success", 0.7, 1.0)
+        elif k == "camp":
+            self.toast(text, "good")
+            self.audio.play("generator", 0.4, 1.0)
         elif k == "boss":
             self.banner = {"text": text, "t": time.time()}
             self.shake_until, self.shake_mag = time.time() + 0.8, 6
@@ -263,13 +284,13 @@ class Session:
             self.state["doors"] = [0] * len(self.map.doors)
         # door sounds (only for doors close to us, throttled)
         now = time.time()
-        if now - self.last_door_snd > 0.15:
+        if now - self.last_door_snd > 0.4:
             for i, (a, b) in enumerate(zip(self.prev_doors, self.state["doors"])):
                 if (a == 1) != (b == 1):
                     d = self.map.doors[i]
                     cx, cy = d.cells[0]
-                    if math.hypot(cx * TILE - self.x, cy * TILE - self.y) < 7 * TILE:
-                        self.audio.play("door_open" if b == 1 else "door_close", 0.5, 0.15)
+                    if math.hypot(cx * TILE - self.x, cy * TILE - self.y) < 4 * TILE:
+                        self.audio.play("door_open" if b == 1 else "door_close", 0.3, 0.4)
                         self.last_door_snd = now
                         break
         self.prev_doors = list(self.state["doors"])
@@ -358,19 +379,21 @@ class Session:
             self.tracers = self.tracers[-40:]
             pid = msg.get("pid")
             dist = math.hypot(msg["x"] - self.x, msg["y"] - self.y)
-            if dist < 12 * TILE:
-                self.audio.play("shot", 0.45 if pid != self.pid else 0.7, 0.04)
+            if pid == self.pid:
+                self.audio.play("shot", 0.7, 0.07)
+            elif dist < 7 * TILE:
+                self.audio.play("shot", 0.25, 0.2)
             if pid == self.pid:
                 self.shoot_until = now + 0.07
                 if msg.get("w") == "shotgun":
                     self.shake_until, self.shake_mag = now + 0.12, 3
             elif pid in self.remote:
                 self.remote[pid].shoot_until = now + 0.07
-            if msg.get("hit"):
-                self.audio.play("zombie_die" if msg.get("kill") else "zombie_hit", 0.6, 0.08)
+            if msg.get("hit") and (pid == self.pid or dist < 7 * TILE):
+                self.audio.play("zombie_die" if msg.get("kill") else "zombie_hit", 0.5, 0.15)
         elif k == "hurt":
             self.hurt_until = now + 0.35
-            self.audio.play("hurt", 0.8, 0.1)
+            self.audio.play("hurt", 0.6, 0.25)
             if msg.get("src") in ("boss", "orb"):
                 self.shake_until, self.shake_mag = now + 0.25, 6
         elif k == "reload":
@@ -383,19 +406,18 @@ class Session:
             self.audio.play("success")
         elif k == "telegraph":
             self.telegraphs.append(dict(msg, t=now))
-            self.audio.play("echo", 0.35, 0.3)
+            self.audio.play("echo", 0.3, 1.5)
         elif k == "slam":
             self.shake_until, self.shake_mag = now + 0.45, 9
-            self.audio.play("surge", 0.7, 0.3)
+            self.audio.play("surge", 0.5, 0.6)
             self.telegraphs.append({"shape": "ring", "x": msg["x"], "y": msg["y"], "r": msg["r"], "dur": 0.35, "t": now})
         elif k == "boss_cast":
-            self.audio.play("echo_glitch", 0.5, 0.3)
+            self.audio.play("echo_glitch", 0.35, 1.0)
         elif k == "teleport":
             self.x, self.y = msg["x"], msg["y"]
             self.flash_until, self.flash_color = now + 0.5, (180, 255, 255)
             self.shake_until, self.shake_mag = now + 0.3, 5
-            self.audio.play("echo", 0.9)
-            self.audio.play("echo_glitch", 0.7)
+            self.audio.play("echo", 0.7)
             self.toast("THE ECHO tore you through a rift!", "error")
         elif k == "jumpscare":
             self.scare = {"t": now, "n": msg.get("n", 0)}
@@ -447,20 +469,36 @@ class Session:
         danger = max(0.0, min(1.0, 1.0 - nearest / (8 * TILE)))
         if self.hp < 35 and not self.dead:
             danger = max(danger, 0.8)
-        if danger > 0.05 and now >= self.next_beat and not self.dead:
-            self.audio.play("heartbeat", 0.25 + 0.6 * danger, 0.2)
+        if danger > 0.3 and now >= self.next_beat and not self.dead:
+            self.audio.play("heartbeat", 0.3 + 0.5 * danger, 0.2)
             self.next_beat = now + 1.15 - 0.7 * danger
         self.flicker = int(self.rng_flicker(now, danger))
         if now >= self.next_ambient:
-            self.next_ambient = now + 22 + (now * 7919 % 25)
-            self.audio.play(["groan", "door_close", "echo", "whisper"][int(now) % 4], 0.22, 1.0)
+            self.next_ambient = now + 60 + (now * 7919 % 60)
+            self.audio.play(["groan", "whisper"][int(now) % 2], 0.5, 1.0)
         self.hurt_until = self.hurt_until
         self.near = nearest_interactable(self.map, self.x, self.y) if self.have_pos else None
         self._reveal()
+        self._discover_rooms(now)
         if self.toasts:
             self.toasts = [t for t in self.toasts if now - t["t"] < 5.0]
         if self.banner and now - self.banner["t"] > 6:
             self.banner = None
+
+    def _discover_rooms(self, now: float) -> None:
+        m = self.map
+        tx, ty = int(self.x // TILE), int(self.y // TILE)
+        if not (0 <= tx < m.width and 0 <= ty < m.height):
+            return
+        z = m.zone[ty * m.width + tx]
+        if 1 <= z <= 250 and (z - 1) not in self.visited_rooms and (z - 1) < len(m.rooms):
+            first = not self.visited_rooms
+            self.visited_rooms.add(z - 1)
+            if not first:
+                self.discover = {"text": m.rooms[z - 1].name, "t": now}
+                self.audio.play("hover", 0.5, 0.5)
+        if self.discover and now - self.discover["t"] > 3.2:
+            self.discover = None
 
     def rng_flicker(self, now: float, danger: float) -> float:
         base = 0.0
@@ -475,7 +513,7 @@ class Session:
         self.last_reveal = (tx, ty)
         m = self.map
         W, H = m.width, m.height
-        r = REVEAL_RADIUS
+        r = self.reveal_r
         for y in range(max(0, ty - r), min(H, ty + r + 1)):
             for x in range(max(0, tx - r), min(W, tx + r + 1)):
                 if (x - tx) ** 2 + (y - ty) ** 2 > r * r:

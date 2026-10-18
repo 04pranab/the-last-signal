@@ -46,7 +46,8 @@ def object_access_cells(m: MapData, o) -> List[Tuple[int, int]]:
 def validate_map(m: MapData) -> List[str]:
     errs: List[str] = []
     W, H = m.width, m.height
-    if not (25 <= len(m.rooms) <= 45):
+    lo, hi = m.meta.get("room_range", (25, 45))
+    if not (lo <= len(m.rooms) <= hi):
         errs.append(f"room count {len(m.rooms)} out of range")
     # --- rooms must not overlap (footprints incl. walls)
     for i, a in enumerate(m.rooms):
@@ -82,7 +83,7 @@ def validate_map(m: MapData) -> List[str]:
     for o in m.objects:
         for yy in range(o.y, o.y + o.h):
             for xx in range(o.x, o.x + o.w):
-                if m.tile(xx, yy) != FLOOR or not m.rooms[o.room].contains(xx, yy):
+                if m.tile(xx, yy) != FLOOR or (o.room >= 0 and not m.rooms[o.room].contains(xx, yy)):
                     errs.append(f"object {o.id} outside room floor")
     for p in m.props:
         for yy in range(p.y, p.y + p.h):

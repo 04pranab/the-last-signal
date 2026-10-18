@@ -19,6 +19,7 @@ from .maps.generator import MapData
 from .objectives import objective_status
 from .zombies import ZombieManager, MAX_ZOMBIES
 from .boss import Boss
+from . import daynight
 from .weapons import ORDER, WEAPONS, CRATE_WEAPONS
 from .player import Player
 
@@ -51,6 +52,10 @@ class GameWorld:
         self.echo = EchoDirector(self, seed=map_data.seed, enabled=echo)
         self._frng = random.Random(map_data.seed ^ 0xFA15E)
         self._solid_cache = None
+        self.daynight = bool(map_data.meta.get("daynight"))
+        self.zombie_cap = int(map_data.meta.get("zombie_cap", MAX_ZOMBIES))
+        self.camps_lit: set = set()
+        self.next_drop = 70.0
         self.zombies_enabled = zombies
         self.boss_enabled = boss
         self.boss: Optional[Boss] = None
@@ -61,19 +66,49 @@ class GameWorld:
         self.zombies = ZombieManager(self, random.Random(map_data.seed ^ 0x2B1E))
         if zombies:
             self.zombies.populate()
+            self.zombies.populate_paths()
         self._init_pickups()
+
+    def daylight(self) -> float:
+        return daynight.daylight(self.t) if self.daynight else 1.0
+
+    def _supply_drop(self) -> None:
+        m = self.map
+        alive = [p for p in self.players.values() if p.connected and not p.dead]
+        if not alive or len([k for k in self.pickups if k["kind"] == "supply"]) >= 2:
+            return
+        rng = self._frng
+        for _ in range(300):
+            x, y = rng.randint(8, m.width - 9), rng.randint(8, m.height - 9)
+            i = y * m.width + x
+            if m.zone[i] in (0, 255) and m.tiles[i] == 1 and not m.solid[i]:
+                if all(math.hypot((x + .5) * TILE - p.x, (y + .5) * TILE - p.y) > 22 * TILE for p in alive):
+                    self._new_pickup("supply", (x + .5) * TILE, (y + .5) * TILE, 200.0)
+                    self.zombies.alert((x + .5) * TILE, (y + .5) * TILE, 14 * TILE, 30.0)
+                    self.broadcast({"t": "ev", "k": "drop", "x": (x + .5) * TILE, "y": (y + .5) * TILE,
+                                    "text": "SUPPLY DROP inbound! Check the world map."})
+                    return
 
     def _init_pickups(self) -> None:
         rng = random.Random(self.map.seed ^ 0x91C)
         m = self.map
         for room in m.rooms:
-            n = {"medical": 2, "storage": 1, "security": 1, "maintenance": 1}.get(room.kind, 0)
+            n = {"medical": 2, "storage": 2, "security": 1, "maintenance": 1, "main_lab": 1, "quarters": 1, "lab": 1}.get(room.kind, 0)
+            if n == 1 and rng.random() < 0.45:
+                n = 0
             for _ in range(n):
                 for _try in range(30):
                     x, y = rng.randint(room.x, room.x + room.w - 1), rng.randint(room.y, room.y + room.h - 1)
                     if not m.solid[y * m.width + x] and (x, y) not in {tuple(c) for c in m.spawns}:
-                        self._new_pickup("medkit" if room.kind in ("medical", "security") else "ammo", (x + .5) * TILE, (y + .5) * TILE, 1e9)
+                        self._new_pickup("medkit" if room.kind in ("medical", "security", "quarters") else "ammo", (x + .5) * TILE, (y + .5) * TILE, 1e9)
                         break
+        # caches along corridors / roads reward travelling
+        W = m.width
+        path_cells = [(i % W, i // W) for i, z in enumerate(m.zone) if (z == 0 or z == 255) and m.tiles[i] == 1 and not m.solid[i]]
+        for _ in range(14 if m.meta.get("daynight") else 10):
+            if path_cells:
+                x, y = rng.choice(path_cells)
+                self._new_pickup("ammo" if rng.random() < 0.6 else "medkit", (x + .5) * TILE, (y + .5) * TILE, 1e9)
 
     # ------------------------------------------------------------- messaging
     def broadcast(self, msg: dict) -> None:
@@ -277,7 +312,7 @@ class GameWorld:
                     p.dead = False
                     p.hp = p.max_hp
                     p.inv[p.cur] = max(p.inv.get(p.cur, 0), WEAPONS[p.cur]["clip"] // 2)
-                    p.x, p.y = self.spawn_position(p.pid)
+                    p.x, p.y = p.respawn if p.respawn else self.spawn_position(p.pid)
                     p.invuln_until = self.t + 3.0
                     self.send(p.pid, {"t": "fx", "k": "respawn", "x": p.x, "y": p.y})
                     self.send_inv(p)
@@ -293,7 +328,7 @@ class GameWorld:
 
     # ---- pickups & loot
     def _new_pickup(self, kind: str, x: float, y: float, ttl: float = 90.0) -> None:
-        if len(self.pickups) >= 40:
+        if len(self.pickups) >= 70:
             return
         self.pickups.append({"id": self._pk_id, "kind": kind, "x": x, "y": y, "end": self.t + ttl})
         self._pk_id += 1
@@ -309,7 +344,17 @@ class GameWorld:
         for pk in list(self.pickups):
             if (pk["x"] - p.x) ** 2 + (pk["y"] - p.y) ** 2 > 34 * 34:
                 continue
-            if pk["kind"] == "medkit":
+            if pk["kind"] == "supply":
+                owned_missing = [w for w in CRATE_WEAPONS if w not in p.inv]
+                name = self._frng.choice(owned_missing or CRATE_WEAPONS)
+                new = self.give_weapon(p, name)
+                for w_ in p.inv:
+                    if p.reserve.get(w_) is not None:
+                        p.reserve[w_] += WEAPONS[w_]["clip"] * 2
+                p.hp = min(p.max_hp, p.hp + 40)
+                self.send_inv(p)
+                self.broadcast({"t": "toast", "text": f"{p.name} claimed the supply drop ({WEAPONS[name]['label']}).", "kind": "good", "snd": "success"})
+            elif pk["kind"] == "medkit":
                 if p.hp >= p.max_hp - 1:
                     continue
                 p.hp = min(p.max_hp, p.hp + 45)
@@ -397,6 +442,9 @@ class GameWorld:
         self._update_combat(dt)
         self.zombies.update(dt)
         self.zombies.trickle()
+        if self.zombies_enabled and self.map.meta.get("supply_drops") and self.t >= self.next_drop:
+            self.next_drop = self.t + self._frng.uniform(120, 190)
+            self._supply_drop()
         if self.boss:
             self.boss.update(dt)
         if self.pickups:
@@ -492,6 +540,19 @@ class GameWorld:
             self._read_terminal(p, o)
         elif o.kind == "weapon_crate":
             self._open_crate(p, o)
+        elif o.kind == "camp":
+            cx, cy = (o.x + 0.5) * TILE, (o.y + 1.2) * TILE
+            p.respawn = (cx, cy)
+            first = o.id not in self.camps_lit
+            self.camps_lit.add(o.id)
+            if first:
+                self.dirty = True
+                self.broadcast({"t": "ev", "k": "camp", "text": f"{p.name} lit a campfire. Respawn point set for them."})
+            else:
+                self.toast(pid, "Respawn point set to this camp.", "good", "success")
+            if p.hp < p.max_hp and self.t >= p.camp_heal_at:
+                p.hp = min(p.max_hp, p.hp + 30)
+                p.camp_heal_at = self.t + 60
         elif o.kind == "med_station":
             if self.t < p.heal_ready_at:
                 self.toast(pid, f"Medical station recharging ({int(p.heal_ready_at - self.t) + 1}s).", "error", "error")
@@ -672,6 +733,7 @@ class GameWorld:
             "obj": obj,
             "attempts": self.attempts,
             "opened": sorted(self.crates_opened),
+            "camps": sorted(self.camps_lit),
             "boss": {"on": bs, "hp": int(self.boss.hp) if self.boss else 0, "max": int(self.boss.max_hp) if self.boss else 0,
                      "phase": self.boss.phase if self.boss else 0},
         }
@@ -687,5 +749,10 @@ class GameWorld:
             msg["b"] = self.boss.snapshot_row()
             msg["o"] = self.boss.orb_rows()
         if self.pickups:
-            msg["k"] = [[pk["id"], 0 if pk["kind"] == "ammo" else 1, round(pk["x"]), round(pk["y"])] for pk in self.pickups[:40]]
+            conn = [p for p in self.players.values() if p.connected]
+            rows = [pk for pk in self.pickups if pk["kind"] == "supply"]          # supply drops are always visible
+            for pk in self.pickups:
+                if pk["kind"] != "supply" and any(abs(pk["x"] - p.x) < 1700 and abs(pk["y"] - p.y) < 1100 for p in conn):
+                    rows.append(pk)
+            msg["k"] = [[pk["id"], {"ammo": 0, "medkit": 1, "supply": 2}.get(pk["kind"], 0), round(pk["x"]), round(pk["y"])] for pk in rows[:50]]
         return msg

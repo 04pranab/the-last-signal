@@ -39,6 +39,8 @@ class Player:
     inv: dict = field(default_factory=lambda: {"pistol": 12})     # owned weapon -> rounds in clip
     reserve: dict = field(default_factory=lambda: {"pistol": None})  # spare ammo (None = infinite)
     heal_ready_at: float = 0.0
+    camp_heal_at: float = 0.0
+    respawn: tuple = None
     scan_ready_at: float = 0.0
 
     @property

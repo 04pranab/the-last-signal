@@ -13,6 +13,7 @@ Usage:
     python tools/build_assets.py /path/to/extracted/asset
 """
 import json
+import math
 import shutil
 import sys
 from pathlib import Path
@@ -744,6 +745,196 @@ def build_v2(asset_root, extra_root):
     print("v2 sprites:", len(manifest["sprites"]), "mining:", len(mm["sprites"]), len(mm["floors"]))
 
 
+# ---------------------------------------------------------------- v3: open world (The Dead Zone)
+def make_tree(seed, dead=False):
+    rng = _random.Random(seed)
+    if dead:
+        cv = Cv(1, 1)
+        cv.ell((14, 44, 50, 58), (0, 0, 0, 70))
+        cv.line([(32, 54), (32, 30)], (58, 44, 34), 5)
+        for _ in range(6):
+            x0, y0 = 32, rng.uniform(26, 40)
+            ang = rng.uniform(-1.2, 1.2)
+            cv.line([(x0, y0), (x0 + 22 * math.sin(ang), y0 - 18 * math.cos(ang))], (74, 58, 44), 3)
+        return cv.done()
+    cv = Cv(2, 2)
+    cv.ell((14, 70, 118, 122), (0, 0, 0, 80))
+    cv.rect((56, 72, 72, 110), (70, 48, 30), r=3)
+    base = [(30, 70, 40), (38, 86, 46), (48, 100, 54)]
+    for layer in range(3):
+        for _ in range(7):
+            x, y, r = rng.uniform(34, 94), rng.uniform(22 + layer * 6, 70), rng.uniform(18, 28)
+            c = base[layer]
+            cv.ell((x - r, y - r, x + r, y + r), c)
+    for _ in range(14):
+        x, y, r = rng.uniform(34, 94), rng.uniform(20, 66), rng.uniform(4, 8)
+        cv.ell((x - r, y - r, x + r, y + r), (96, 140, 76))
+    return cv.done()
+
+
+def make_rock(seed, w=1):
+    rng = _random.Random(seed)
+    cv = Cv(w, 1)
+    W = 64 * w
+    cv.ell((8, 36, W - 8, 60), (0, 0, 0, 70))
+    for _ in range(5):
+        x, y, r = rng.uniform(16, W - 16), rng.uniform(26, 42), rng.uniform(11, 18)
+        c = rng.randint(92, 132)
+        cv.ell((x - r, y - r, x + r, y + r), (c, c - 4, c - 10))
+        cv.ell((x - r * 0.6, y - r * 0.8, x + r * 0.1, y - r * 0.1), (c + 28, c + 24, c + 16))
+    return cv.done()
+
+
+def make_wreck():
+    cv = Cv(2, 1)
+    cv.rect((8, 10, 122, 58), (0, 0, 0, 70), r=8)
+    housing(cv, (6, 8, 120, 54), body=(124, 70, 44), edge=(46, 28, 20), r=9)
+    cv.rect((78, 14, 112, 48), (60, 76, 86), r=4)
+    cv.rect((84, 18, 108, 44), (36, 46, 54), r=3)
+    cv.rect((14, 14, 70, 48), (146, 84, 52), r=4)
+    for k in range(6):
+        cv.line([(20 + k * 8, 18), (26 + k * 8, 44)], (96, 52, 32), 2)
+    cv.ell((96, 6, 116, 16), (30, 30, 30))
+    cv.ell((12, 44, 32, 56), (30, 30, 30))
+    return cv.done()
+
+
+def make_tent():
+    cv = Cv(2, 2)
+    cv.rect((14, 22, 118, 118), (0, 0, 0, 60), r=10)
+    cv.d.polygon([(64 * S, 12 * S), (116 * S, 108 * S), (12 * S, 108 * S)], fill=(150, 126, 84, 255))
+    cv.d.polygon([(64 * S, 12 * S), (116 * S, 108 * S), (64 * S, 108 * S)], fill=(120, 98, 62, 255))
+    cv.d.polygon([(64 * S, 54 * S), (84 * S, 108 * S), (44 * S, 108 * S)], fill=(40, 32, 26, 255))
+    cv.line([(64, 12), (64, 54)], (90, 70, 44), 3)
+    return cv.done()
+
+
+def make_sandbags():
+    cv = Cv(1, 1)
+    cv.rect((6, 36, 58, 58), (0, 0, 0, 60), r=6)
+    for row in range(2):
+        for k in range(3):
+            x = 8 + k * 17 + row * 8
+            cv.rect((x, 24 + row * 14, x + 18, 36 + row * 14), (160, 140, 96) if (k + row) % 2 else (146, 126, 86), outline=(90, 78, 52), r=5)
+    return cv.done()
+
+
+def make_camp(lit):
+    cv = Cv(1, 1)
+    cv.ell((8, 12, 56, 60), (0, 0, 0, 70))
+    for a in range(0, 360, 45):
+        x, y = 32 + 20 * math.cos(math.radians(a)), 34 + 18 * math.sin(math.radians(a))
+        cv.ell((x - 6, y - 5, x + 6, y + 5), (96, 94, 90))
+    cv.line([(18, 44), (46, 24)], (86, 60, 36), 5)
+    cv.line([(18, 24), (46, 44)], (96, 68, 40), 5)
+    if lit:
+        glow(cv, 32, 34, 30, (255, 150, 50), 130)
+        cv.d.polygon([(32 * S, 12 * S), (46 * S, 38 * S), (32 * S, 46 * S), (18 * S, 38 * S)], fill=(255, 130, 30, 255))
+        cv.d.polygon([(32 * S, 22 * S), (40 * S, 38 * S), (32 * S, 42 * S), (24 * S, 38 * S)], fill=(255, 220, 90, 255))
+    else:
+        cv.ell((24, 28, 40, 42), (40, 36, 34))
+    return cv.done()
+
+
+def make_supply():
+    cv = Cv(1, 1)
+    glow(cv, 32, 36, 30, (255, 220, 90), 100)
+    housing(cv, (10, 18, 54, 54), body=(196, 150, 50), edge=(70, 50, 14), r=4)
+    cv.rect((10, 32, 54, 40), (60, 44, 20))
+    cv.rect((28, 22, 36, 50), (250, 240, 200))
+    cv.line([(14, 18), (32, 4), (50, 18)], (240, 240, 240), 2)
+    return cv.done()
+
+
+def make_asphalt(seed):
+    rng = _random.Random(seed)
+    im = Image.new("RGBA", (64, 64), (60, 62, 66, 255))
+    d = ImageDraw.Draw(im)
+    for _ in range(70):
+        x, y = rng.randint(0, 63), rng.randint(0, 63)
+        v = rng.randint(-10, 10)
+        d.rectangle([x, y, x + rng.randint(1, 3), y + rng.randint(1, 2)], fill=(60 + v, 62 + v, 66 + v, 255))
+    if seed % 3 == 0:
+        x = rng.randint(6, 40)
+        d.line([(x, 0), (x + rng.randint(-8, 8), 63)], fill=(34, 34, 38, 255), width=1)
+    return im
+
+
+def make_grass(base, seed, dead):
+    rng = _random.Random(seed)
+    im = tint(base, (0.62, 0.7, 0.5) if not dead else (0.78, 0.72, 0.5))
+    d = ImageDraw.Draw(im)
+    for _ in range(18):
+        x, y = rng.randint(2, 60), rng.randint(2, 60)
+        v = rng.randint(-14, 14)
+        d.line([(x, y), (x + rng.randint(-2, 2), y - rng.randint(3, 6))], fill=(70 + v, 110 + v, 52 + v, 255) if not dead else (120 + v, 100 + v, 56 + v, 255))
+    return im
+
+
+def make_concrete_wall(face):
+    rng = _random.Random(31 if face else 17)
+    cv = Cv(1, 1)
+    base = (118, 120, 122) if face else (86, 88, 92)
+    cv.rect((0, 0, 64, 64), base)
+    for _ in range(26):
+        x, y, r = rng.uniform(0, 64), rng.uniform(0, 64), rng.uniform(3, 9)
+        sh = rng.randint(-12, 12)
+        cv.ell((x - r, y - r, x + r, y + r), (base[0] + sh, base[1] + sh, base[2] + sh))
+    if face:
+        cv.rect((0, 0, 64, 7), (166, 168, 170))
+        cv.rect((0, 40, 64, 47), (52, 54, 58))
+        cv.rect((0, 47, 64, 64), (74, 76, 80))
+        for x in (10, 36, 54):
+            cv.line([(x, 8), (x + rng.randint(-2, 2), 38)], (84, 86, 88), 1.4)
+        cv.rect((0, 22, 64, 26), (130, 70, 40))
+    else:
+        for x in (8, 56):
+            for y in (8, 56):
+                cv.ell((x - 2, y - 2, x + 2, y + 2), (150, 152, 156))
+    return cv.done()
+
+
+def build_v3(asset_root):
+    k_tds = asset_root / "kenney_top-down-shooter"
+    OW = OUT / "maps" / "open_world"
+    mm = {"tile_size": TS, "sprites": {}, "floors": {}}
+
+    def regm(name, im, group):
+        rel = f"{group}/{name}.png"
+        save(im, OW / rel)
+        mm["sprites"][name] = {"file": rel, "w": im.width, "h": im.height, "group": group}
+
+    regm("wall_top", make_concrete_wall(False), "walls")
+    regm("wall_face", make_concrete_wall(True), "walls")
+    regm("tree_a", make_tree(1), "decorations")
+    regm("tree_b", make_tree(2), "decorations")
+    regm("dead_tree", make_tree(3, dead=True), "decorations")
+    regm("rock_a", make_rock(4), "decorations")
+    regm("rock_b", make_rock(5, 2), "decorations")
+    regm("car_wreck", make_wreck(), "props")
+    regm("tent", make_tent(), "props")
+    regm("sandbags", make_sandbags(), "props")
+    regm("camp_off", make_camp(False), "terminals")
+    regm("camp_on", make_camp(True), "terminals")
+    regm("pickup_supply", make_supply(), "props")
+    floors = {}
+    for i in range(4):
+        floors[f"grass_{i}"] = make_grass(tile_img(k_tds, 1 + i), 500 + i, False)
+    for i in range(3):
+        floors[f"wasteland_{i}"] = make_grass(tile_img(k_tds, 5 + (i % 2)), 600 + i, True)
+    for i in range(4):
+        floors[f"road_{i}"] = make_asphalt(i)
+    floors["concrete"] = tint(tile_img(k_tds, 12), (0.72, 0.74, 0.76))
+    floors["ow_wood"] = tint(tile_img(k_tds, 44), (0.8, 0.72, 0.64))
+    floors["ow_metal"] = make_floor_server(tile_img(k_tds, 8))
+    floors["ow_dark"] = tint(tile_img(k_tds, 9), (0.55, 0.6, 0.65))
+    for name, im in floors.items():
+        save(im, OW / "floor" / f"{name}.png")
+        mm["floors"][name] = f"floor/{name}.png"
+    (OW / "manifest.json").write_text(json.dumps(mm, indent=1, sort_keys=True))
+    print("open world:", len(mm["sprites"]), len(mm["floors"]))
+
+
 # ------------------------------------------------------------------ main
 def save(im, path):
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -848,7 +1039,7 @@ def main(asset_root: Path):
     reg("decorations", "rug_green", tile_img(k_tds, 349))
 
     # ---- characters: side/front-view crew + zombies (Kenney Platformer Characters, 2nd asset root)
-    extra_root = Path(sys.argv[2]) if len(sys.argv) > 2 else None
+    extra_root = Path(sys.argv[2]) if len(sys.argv) > 2 and not sys.argv[2].startswith("--") else None
     ch_out = OUT / "common" / "characters"
     ch_out.mkdir(parents=True, exist_ok=True)
     for old in ch_out.glob("*.png"):
@@ -924,7 +1115,7 @@ def main(asset_root: Path):
                 shutil.copy(d / cand, OUT / "licenses" / f"{pack}_License.txt")
 
     # ---- optional second asset root (light masks, key prompts)
-    extra = Path(sys.argv[2]) if len(sys.argv) > 2 else None
+    extra = Path(sys.argv[2]) if len(sys.argv) > 2 and not sys.argv[2].startswith("--") else None
     if extra and (extra / "kenney_light-masks-1.0").exists():
         (OUT / "common" / "lighting").mkdir(parents=True, exist_ok=True)
         shutil.copy(extra / "kenney_light-masks-1.0" / "Transparent" / "circle_b.png", OUT / "common" / "lighting" / "light_mask.png")
@@ -933,6 +1124,7 @@ def main(asset_root: Path):
     (MAP / "manifest.json").write_text(json.dumps(manifest, indent=1, sort_keys=True))
     print("sprites:", len(manifest["sprites"]), "floors:", len(manifest["floors"]))
     build_v2(asset_root, extra)
+    build_v3(asset_root)
 
 
 if __name__ == "__main__":

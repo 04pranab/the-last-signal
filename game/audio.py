@@ -13,7 +13,9 @@ from .config import COMMON_DIR
 
 
 class Audio:
-    def __init__(self):
+    def __init__(self, settings=None):
+        from .settings import Settings
+        self.settings = settings or Settings()
         self.enabled = False
         self.sounds: Dict[str, "pygame.mixer.Sound"] = {}
         self.last: Dict[str, float] = {}
@@ -91,10 +93,26 @@ class Audio:
     def play(self, name: str, volume: float = 1.0, min_gap: float = 0.12) -> None:
         if not self.enabled or name not in self.sounds:
             return
+        st = self.settings
+        if st.mute:
+            return
+        from .settings import CATEGORY
+        cat = CATEGORY.get(name, "world")
+        if cat == "ambient" and not st.ambient_on:
+            return
         now = time.time()
         if now - self.last.get(name, 0) < min_gap:
             return
+        v = volume * st.master * st.vol.get(cat, 0.6)
+        if v < 0.01:
+            return
         self.last[name] = now
         s = self.sounds[name]
-        s.set_volume(max(0.0, min(1.0, volume * self.volume)))
+        s.set_volume(max(0.0, min(1.0, v)))
         s.play()
+
+    def preview(self, category: str) -> None:
+        """Play a sample from a category (used by the settings sliders)."""
+        sample = {"ui": "success", "effects": "shot", "world": "door_open", "ambient": "heartbeat"}.get(category, "click")
+        self.last.pop(sample, None)
+        self.play(sample, 1.0, 0.0)
