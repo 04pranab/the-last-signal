@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 
 GAME_NAME = "THE LAST SIGNAL"
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 PROTOCOL_VERSION = 1
 DISCOVERY_MAGIC = "THELASTSIGNAL"
 

@@ -20,7 +20,7 @@ AGGRO = 7.0 * TILE
 DEAGGRO = 16.0 * TILE
 ATTACK_RANGE = 40.0
 ATTACK_COOLDOWN = 1.0
-MAX_ZOMBIES = 55
+MAX_ZOMBIES = 70
 SAFE_RADIUS_TILES = 24      # no zombies this close to the spawn hub at the start
 
 
@@ -44,6 +44,9 @@ class Zombie:
         self.attack_at = 0.0
         self.attacked_until = 0.0
         self.moving = False
+        self.wander_next = 0.0
+        self.wdx = 0.0
+        self.wdy = 0.0
 
     @property
     def radius(self) -> float:
@@ -101,9 +104,9 @@ class ZombieManager:
         m = self.world.map
         hub = m.rooms[m.meta["hub_room"]]
         hx, hy = hub.center
-        counts = {"storage": (0, 2), "lab": (0, 2), "maintenance": (0, 1), "quarters": (0, 1), "main_lab": (1, 3),
-                  "medical": (1, 2), "archive": (1, 2), "server_wing": (1, 3), "security": (1, 2), "restricted": (1, 2),
-                  "generator": (1, 2), "comms": (1, 2)}
+        counts = {"storage": (1, 2), "lab": (0, 2), "maintenance": (1, 2), "quarters": (0, 2), "main_lab": (2, 4),
+                  "medical": (1, 3), "archive": (1, 3), "server_wing": (2, 4), "security": (1, 3), "restricted": (1, 3),
+                  "generator": (1, 3), "comms": (1, 2)}
         for room in m.rooms:
             if room.kind not in counts:
                 continue
@@ -114,11 +117,36 @@ class ZombieManager:
             if not cells:
                 continue
             for _ in range(self.rng.randint(*counts[room.kind])):
-                if len(self.zombies) >= MAX_ZOMBIES:
+                if len(self.zombies) >= self.world.zombie_cap:
                     return
                 cx_, cy_ = self.rng.choice(cells)
                 z = Zombie(self._pick_kind(), (cx_ + 0.5) * TILE, (cy_ + 0.5) * TILE)
                 self.zombies[z.id] = z
+
+    def populate_paths(self) -> None:
+        """Zombies in the corridors / on the roads / across open ground, so travelling between rooms is never empty."""
+        m = self.world.map
+        W = m.width
+        hub = m.rooms[m.meta["hub_room"]]
+        hx, hy = hub.center
+        outdoor = bool(m.meta.get("outdoor_packs"))
+        cells = [(i % W, i // W) for i, z in enumerate(m.zone) if (z == 0 or z == 255) and m.tiles[i] == 1 and not m.solid[i]]
+        if not cells:
+            return
+        n_packs = int(m.meta.get("outdoor_packs", 0)) or 14
+        for _ in range(n_packs):
+            if len(self.zombies) >= self.world.zombie_cap:
+                return
+            for _try in range(60):
+                cx, cy = self.rng.choice(cells)
+                if abs(cx - hx) + abs(cy - hy) < SAFE_RADIUS_TILES + 8:
+                    continue
+                size = self.rng.randint(2, 5) if outdoor else self.rng.randint(1, 2)
+                for _k in range(size):
+                    x, y = cx + self.rng.randint(-2, 2), cy + self.rng.randint(-2, 2)
+                    if not m.solid[y * W + x] and len(self.zombies) < self.world.zombie_cap:
+                        self.add(self._pick_kind(), (x + .5) * TILE, (y + .5) * TILE)
+                break
 
     def add(self, kind: str, x: float, y: float, awake: bool = False) -> Zombie:
         z = Zombie(kind, x, y)
@@ -136,8 +164,9 @@ class ZombieManager:
         alive = [p for p in w.players.values() if p.connected and not p.dead]
         if not alive:
             return
-        self.next_trickle = w.t + self.rng.uniform(14, 26) * (0.7 if w.power else 1.0)
-        cap = min(MAX_ZOMBIES, 22 + 5 * len(alive) + (8 if w.power else 0))
+        self.next_trickle = w.t + self.rng.uniform(12, 22) * (0.7 if w.power else 1.0) * (1.0 - 0.45 * (1.0 - w.daylight() if w.daynight else 0.0))
+        night = 1.0 - w.daylight() if w.daynight else 0.0
+        cap = min(w.zombie_cap, 26 + 5 * len(alive) + (8 if w.power else 0) + int(12 * night))
         if len(self.zombies) >= cap:
             return
         p = self.rng.choice(alive)
@@ -227,6 +256,8 @@ class ZombieManager:
         now = w.t
         targets = [p for p in w.players.values() if p.connected and not p.dead]
         zs = list(self.zombies.values())
+        aggro = AGGRO * (1.0 + 0.45 * (1.0 - w.daylight())) if w.daynight else AGGRO
+        wander = bool(w.map.meta.get("wander"))
         for z in zs:
             spec = KINDS[z.kind]
             best, bd = None, 1e18
@@ -235,12 +266,14 @@ class ZombieManager:
                 if d2 < bd:
                     best, bd = p, d2
             alerted = now < z.alert_until
-            if best is not None and (bd < AGGRO * AGGRO or (alerted and bd < (DEAGGRO * 1.4) ** 2)):
+            if best is not None and (bd < aggro * aggro or (alerted and bd < (DEAGGRO * 1.4) ** 2)):
                 z.awake = True
             elif z.awake and (best is None or bd > DEAGGRO * DEAGGRO) and not alerted:
                 z.awake = False
             z.moving = False
             if not z.awake:
+                if wander:
+                    self._wander(z, dt, now)
                 continue
             goal = (best.x, best.y) if best is not None else z.alert_pos
             if goal is None:
@@ -281,6 +314,26 @@ class ZombieManager:
                     ox, oy = dx / d * push * 0.35, dy / d * push * 0.35
                     b.x, b.y = move_with_collision(w.solid_at, b.x, b.y, ox, oy, ZOMBIE_HALF)
                     a.x, a.y = move_with_collision(w.solid_at, a.x, a.y, -ox, -oy, ZOMBIE_HALF)
+
+    def _wander(self, z, dt: float, now: float) -> None:
+        """Idle zombies shamble around (open world): a roaming feel instead of statues."""
+        w = self.world
+        if now >= z.wander_next:
+            z.wander_next = now + self.rng.uniform(2.5, 7.0)
+            if self.rng.random() < 0.6:
+                a = self.rng.uniform(0, 6.283)
+                z.wdx, z.wdy = math.cos(a), math.sin(a)
+            else:
+                z.wdx = z.wdy = 0.0
+        if z.wdx or z.wdy:
+            sp = 34.0 * dt
+            nx, ny = move_with_collision(w.solid_at, z.x, z.y, z.wdx * sp, z.wdy * sp, ZOMBIE_HALF)
+            z.moving = (nx, ny) != (z.x, z.y)
+            if not z.moving:
+                z.wdx = z.wdy = 0.0
+            if abs(z.wdx) > 0.2:
+                z.face = 0.0 if z.wdx > 0 else math.pi
+            z.x, z.y = nx, ny
 
     def snapshot_rows(self) -> list:
         now = self.world.t

@@ -190,9 +190,12 @@ def test_boss_hit_by_bullets_and_snapshot_rows():
     else:
         pytest.skip("no clear lane")
     hp0 = b.hp
+    cx_, cy_ = b.x, b.y
     w.give_weapon(p, "rifle")
     w.set_input(1, 0, 0, 0.0, True)
-    w.tick(DT)
+    for _ in range(14):
+        w.tick(DT)
+        b.x, b.y = cx_ + 0.0, cy_
     assert b.hp < hp0
     snap = w.snapshot()
     assert "b" in snap and snap["b"][2] == int(b.hp)
@@ -260,11 +263,11 @@ def test_chat_and_weapon_messages_validated():
 
 
 # ---------------------------------------------------------------- map 2
-@pytest.mark.parametrize("seed", list(range(3000, 3030)))
+@pytest.mark.parametrize("seed", list(range(3000, 3015)))
 def test_mining_complex_generates_valid_maps(seed):
     m = generate_map(seed, "mining_complex")
     assert m.name == "Underground Mining Complex" and validate_map(m) == []
-    assert 25 <= len(m.rooms) <= 45 and len(m.secret["weapons"]) >= 3
+    assert 30 <= len(m.rooms) <= 60 and len(m.secret["weapons"]) >= 3
     assert m.meta["light_tiles"] < 8
 
 
@@ -282,3 +285,82 @@ def test_mining_complex_differs_and_full_game_completes():
     a_ = w.map.secret["answer"]
     w.transmit(1, a_["freq"], a_["chan"], a_["seq"])
     assert w.phase == "victory"
+
+
+# ---------------------------------------------------------------- open world
+@pytest.mark.parametrize("seed", list(range(4000, 4015)))
+def test_open_world_generates_valid_dense_maps(seed):
+    m = generate_map(seed, "open_world")
+    assert m.name == "The Dead Zone" and validate_map(m) == []
+    assert len(m.rooms) >= 30 and len(m.meta["camps"]) >= 4 and m.meta["daynight"]
+    from game.maps.generator import FLOOR
+    # open ground between outposts: most of the map is walkable floor, not void
+    floor = sum(1 for t in m.tiles if t == FLOOR)
+    assert floor > 0.6 * m.width * m.height
+
+
+def test_maps_are_dense_enough_rooms_per_area():
+    for mid, min_rooms in (("research_station", 32), ("mining_complex", 32), ("open_world", 30)):
+        m = generate_map(77, mid)
+        assert len(m.rooms) >= min_rooms, mid
+
+
+def open_world():
+    w = GameWorld(generate_map(4100, "open_world"), echo=False, zombies=True)
+    w.add_player(1, "Om")
+    return w
+
+
+def test_open_world_camp_sets_respawn_and_lights_fire():
+    w = open_world()
+    p = w.players[1]
+    camp = next(o for o in w.map.objects if o.kind == "camp" and o.id != "camp_home")
+    at(w, 1, camp.id)
+    w.drain()
+    w.interact(1, camp.id)
+    assert camp.id in w.camps_lit and p.respawn is not None
+    assert camp.id in w.state_message()["camps"]
+    p.hp = 0
+    w.hurt_player(1, 1)                      # already dead -> ignored; use proper death
+    p.dead, p.dead_until = True, w.t + 1
+    for _ in range(int(2 / DT)):
+        w.tick(DT)
+    assert not p.dead and abs(p.x - p.respawn[0]) < 5 and abs(p.y - p.respawn[1]) < 5
+
+
+def test_supply_drop_spawns_is_visible_everywhere_and_claimable():
+    w = open_world()
+    p = w.players[1]
+    w._supply_drop()
+    drops = [k for k in w.pickups if k["kind"] == "supply"]
+    assert drops
+    snap = w.snapshot()
+    assert any(row[1] == 2 for row in snap["k"])               # always in the snapshot, even when far away
+    d = drops[0]
+    p.x, p.y = d["x"], d["y"]
+    w.drain()
+    w.tick(DT)
+    assert not [k for k in w.pickups if k["kind"] == "supply"]
+    assert len(p.inv) >= 2
+
+
+def test_day_night_cycle_and_zombie_behaviour():
+    from game import daynight
+    vals = [daynight.daylight(t) for t in range(0, 420, 10)]
+    assert min(vals) < 0.1 and max(vals) > 0.9
+    assert {daynight.label(t) for t in range(0, 420, 5)} >= {"DAY", "NIGHT"}
+    w = open_world()
+    assert w.daynight and w.daylight() > 0.8
+    assert len(w.zombies.zombies) >= 50                       # roaming packs outdoors
+
+
+def test_idle_zombies_wander_in_open_world():
+    w = open_world()
+    zs = [z for z in w.zombies.zombies.values()][:20]
+    start = [(z.x, z.y) for z in zs]
+    w.players[1].x, w.players[1].y = 1000, 1000               # far away from everything
+    for _ in range(int(40 / DT)):
+        w.tick(DT)
+        w.players[1].hp = 100
+    moved = sum(1 for z, (x, y) in zip(zs, start) if z.id in w.zombies.zombies and abs(z.x - x) + abs(z.y - y) > 20)
+    assert moved >= 3

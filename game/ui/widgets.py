@@ -83,3 +83,37 @@ class TextField:
             draw_text(screen, lib, s, (self.rect.x + 12, self.rect.centery - 11), 20, (20, 30, 40))
         else:
             draw_text(screen, lib, self.placeholder, (self.rect.x + 12, self.rect.centery - 11), 20, (110, 120, 130))
+
+
+class Slider:
+    """Horizontal 0..1 slider (drag with the mouse)."""
+
+    def __init__(self, rect, value: float, on_change=None, on_release=None):
+        self.rect = pygame.Rect(rect)
+        self.value = value
+        self.on_change, self.on_release = on_change, on_release
+        self.drag = False
+
+    def _set_from(self, x):
+        v = (x - self.rect.x) / max(1, self.rect.w)
+        self.value = max(0.0, min(1.0, v))
+        if self.on_change:
+            self.on_change(self.value)
+
+    def handle(self, e) -> None:
+        if e.type == pygame.MOUSEBUTTONDOWN and e.button == 1 and self.rect.inflate(0, 20).collidepoint(e.pos):
+            self.drag = True
+            self._set_from(e.pos[0])
+        elif e.type == pygame.MOUSEMOTION and self.drag:
+            self._set_from(e.pos[0])
+        elif e.type == pygame.MOUSEBUTTONUP and e.button == 1 and self.drag:
+            self.drag = False
+            if self.on_release:
+                self.on_release(self.value)
+
+    def draw(self, screen, lib):
+        r = self.rect
+        pygame.draw.rect(screen, (20, 30, 42), (r.x, r.centery - 5, r.w, 10), border_radius=5)
+        pygame.draw.rect(screen, (90, 190, 255), (r.x, r.centery - 5, int(r.w * self.value), 10), border_radius=5)
+        pygame.draw.circle(screen, (240, 248, 255), (r.x + int(r.w * self.value), r.centery), 11)
+        pygame.draw.circle(screen, (60, 120, 170), (r.x + int(r.w * self.value), r.centery), 11, 2)

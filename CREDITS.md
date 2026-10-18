@@ -30,6 +30,11 @@ drill, pump, TNT crates, ore piles, support beams and lanterns, plus the weapon 
 pickups and blood/scorch/crack decals, are drawn by `tools/build_assets.py` (project code, not Kenney artwork).
 The heartbeat, whisper, groan and jumpscare stinger sounds are synthesised at runtime in `game/audio.py`.
 
+## Map 3 (The Dead Zone) assets
+Grass, wasteland and road floors are derived (tinted + noise) from Kenney top-down-shooter floor tiles. The concrete
+outpost walls, trees, rocks, car wrecks, tents, sandbags, campfires and the supply crate are drawn by
+`tools/build_assets.py` (project code, not Kenney artwork).
+
 ## Packs inspected but NOT used
 
 `kenney_space-station-kit` and `kenney_modular-space-kit_1.0` are 3D-only (FBX/OBJ/GLB) and were deliberately skipped.

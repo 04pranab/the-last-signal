@@ -11,6 +11,8 @@ from typing import List, Optional
 import pygame
 
 from .audio import Audio
+from .settings import Settings
+from .ui.settings_screen import SettingsScreen
 from .camera import Camera
 from .config import (DEFAULT_GAME_PORT, FPS, GAME_NAME, MAX_NAME_LEN, SCREEN_H, SCREEN_W, TILE, settings_dir)
 from .networking.client import NetClient
@@ -45,7 +47,8 @@ class GameScreen:
         self.cam = Camera(app.screen.get_width(), app.screen.get_height())
         self.paused = False
         self.resume = Button((540, 300, 200, 50), "RESUME", self._resume, BTN_GREEN)
-        self.leave = Button((540, 370, 200, 50), "DISCONNECT", app.leave_game, BTN_RED)
+        self.settings_btn = Button((540, 370, 200, 50), "SETTINGS", self._open_settings)
+        self.leave = Button((540, 440, 200, 50), "DISCONNECT", app.leave_game, BTN_RED)
         self.end_btn = Button((540, 520, 200, 50), "MAIN MENU", app.leave_game, BTN_RED)
         self.end_lobby = Button((510, 450, 260, 50), "BACK TO LOBBY", app.return_lobby, BTN_GREEN)
         self.vcache = {}
@@ -55,6 +58,11 @@ class GameScreen:
 
     def _resume(self):
         self.paused = False
+
+    def _open_settings(self):
+        self.app.net.send({"t": "input", "mx": 0, "my": 0, "aim": 0.0, "fire": False})
+        pygame.mouse.set_visible(True)
+        self.app.goto(SettingsScreen(self.app, self))
 
     def handle_event(self, e):
         s = self.app.session
@@ -84,6 +92,7 @@ class GameScreen:
             return
         if self.paused:
             self.resume.handle(e, self.app.audio)
+            self.settings_btn.handle(e, self.app.audio)
             self.leave.handle(e, self.app.audio)
             if e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE:
                 self.paused = False
@@ -94,27 +103,28 @@ class GameScreen:
                     self.hud.show_notes = False
                 else:
                     self.paused = True
-            elif e.key == pygame.K_TAB:
-                self.hud.show_notes = not self.hud.show_notes
-            elif e.key == pygame.K_e:
-                s.interact(self.app.net)
-            elif e.key == pygame.K_m:
-                self.hud.minimap_big = not self.hud.minimap_big
-            elif e.key == pygame.K_r:
-                self.app.net.send({"t": "reload"})
-            elif e.key == pygame.K_t:
-                self.chatting = True
-                self.chat_field.focus = True
-                self.chat_field.text = ""
-            elif e.key == pygame.K_q or pygame.K_1 <= e.key <= pygame.K_5:
-                owned = [w for w in ORDER if w in s.owned]
-                if e.key == pygame.K_q:
+            else:
+                K = self.app.settings.keys
+                if e.key == K["notes"]:
+                    self.hud.show_notes = not self.hud.show_notes
+                elif e.key == K["interact"]:
+                    s.interact(self.app.net)
+                elif e.key == K["map"]:
+                    self.hud.minimap_big = not self.hud.minimap_big
+                elif e.key == K["reload"]:
+                    self.app.net.send({"t": "reload"})
+                elif e.key == K["chat"]:
+                    self.chatting = True
+                    self.chat_field.focus = True
+                    self.chat_field.text = ""
+                elif e.key == K["weapon_next"]:
+                    owned = [w for w in ORDER if w in s.owned]
                     i = owned.index(s.cur_weapon) if s.cur_weapon in owned else 0
                     self.app.net.send({"t": "weapon", "name": owned[(i + 1) % len(owned)]})
                 else:
-                    idx = e.key - pygame.K_1
-                    if idx < len(ORDER) and ORDER[idx] in s.owned:
-                        self.app.net.send({"t": "weapon", "name": ORDER[idx]})
+                    for idx in range(5):
+                        if e.key == K[f"w{idx + 1}"] and ORDER[idx] in s.owned:
+                            self.app.net.send({"t": "weapon", "name": ORDER[idx]})
         elif e.type == pygame.MOUSEWHEEL:
             owned = [w for w in ORDER if w in s.owned]
             if owned:
@@ -129,15 +139,16 @@ class GameScreen:
         mx = my = 0.0
         if not (self.paused or self.chatting or self.hud.text_input_active() or s.popup or self.hud.show_notes):
             k = pygame.key.get_pressed()
-            mx = (k[pygame.K_d] or k[pygame.K_RIGHT]) - (k[pygame.K_a] or k[pygame.K_LEFT])
-            my = (k[pygame.K_s] or k[pygame.K_DOWN]) - (k[pygame.K_w] or k[pygame.K_UP])
+            K = self.app.settings.keys
+            mx = (k[K["right"]] or k[pygame.K_RIGHT]) - (k[K["left"]] or k[pygame.K_LEFT])
+            my = (k[K["down"]] or k[pygame.K_DOWN]) - (k[K["up"]] or k[pygame.K_UP])
         aim, fire = s.aim, False
         if not (self.paused or self.chatting or self.hud.text_input_active() or s.popup or self.hud.show_notes or s.end):
             mxp, myp = pygame.mouse.get_pos()
             w, h = self.app.screen.get_size()
             aim = math.atan2(myp - (h // 2 - 8), mxp - w // 2)
             k = pygame.key.get_pressed()
-            fire = bool(pygame.mouse.get_pressed()[0] or k[pygame.K_SPACE])
+            fire = bool(pygame.mouse.get_pressed()[0] or k[self.app.settings.keys["fire"]])
         s.update(dt, float(mx), float(my), self.app.net, aim, fire)
         want_hidden = not (self.paused or self.chatting or self.hud.text_input_active() or s.popup or self.hud.show_notes or s.end)
         if pygame.mouse.get_visible() == want_hidden:
@@ -236,10 +247,11 @@ class GameScreen:
         cx, cy = self.cam.x, self.cam.y
         r.draw_static(screen, cx, cy)
         r.draw_doors(screen, cx, cy, s.state["doors"])
-        s_state = {"power": s.state["power"], "core": s.state["core"], "corrupt": s.state.get("corrupt", []), "opened": s.state.get("opened", [])}
+        s_state = {"camps": s.state.get("camps", []), "power": s.state["power"], "core": s.state["core"], "corrupt": s.state.get("corrupt", []), "opened": s.state.get("opened", [])}
         r.draw_objects(screen, cx, cy, s_state, s.read_keys, self.t, s.near.id if s.near else None)
         self._draw_ground_fx(screen, lib, s, cx, cy)
-        lim = (LIGHT_RADIUS_DARK if s.lights_out else r.light_r) * 0.92
+        dl0 = s.daylight()
+        lim = (LIGHT_RADIUS_DARK if s.lights_out else r.light_r * (1.0 + 1.3 * dl0 if dl0 is not None else 1.0)) * 0.92
         now = time.time()
         actors = []
         for p in s.remote.values():
@@ -272,8 +284,10 @@ class GameScreen:
             g = lib.glow(34, (190, 80, 255))
             screen.blit(g, (ox - 34, oy - 34), special_flags=pygame.BLEND_RGB_ADD)
             pygame.draw.circle(screen, (235, 200, 255), (int(ox), int(oy)), 7)
-        r.draw_darkness(screen, s.lights_out, s.flicker)
+        dl = s.daylight()
+        r.draw_darkness(screen, s.lights_out, s.flicker, dl)
         r.draw_glows(screen, cx, cy, s_state, s.read_keys, self.t)
+        self._draw_supply_markers(screen, lib, s, cx, cy)
         self._draw_phantom(screen, lib, s)
         if s.interference:
             draw_interference(screen, self.t)
@@ -294,12 +308,36 @@ class GameScreen:
         elif self.paused and not s.end:
             self._overlay(screen, "PAUSED", "The station does not wait for you.")
             self.resume.draw(screen, lib)
+            self.settings_btn.draw(screen, lib)
             self.leave.draw(screen, lib)
         if s.end:
             self._end(screen, s.end)
         self._shake(screen, s)
 
     # ---- extra effects
+    def _draw_supply_markers(self, screen, lib, s, cx, cy):
+        w, h = screen.get_size()
+        for pk in s.pickups:
+            if pk[1] != 2:
+                continue
+            x, y = pk[2] - cx, pk[3] - cy
+            if 0 <= x <= w and 0 <= y <= h:
+                g = lib.glow(150, (230, 190, 50))
+                screen.blit(g, (x - 150, y - 150), special_flags=pygame.BLEND_RGB_ADD)
+                for k in range(0, 260, 6):
+                    a = max(0, 255 - k)
+                    pygame.draw.line(screen, (a, int(a * 0.85), int(a * 0.25)), (x, y - k), (x, y - k - 4), 3)
+            else:
+                dx, dy = pk[2] - s.x, pk[3] - s.y
+                ang = math.atan2(dy, dx)
+                ex = max(30, min(w - 30, w // 2 + math.cos(ang) * w))
+                ey = max(30, min(h - 30, h // 2 + math.sin(ang) * h))
+                pts = [(ex + math.cos(ang) * 16, ey + math.sin(ang) * 16), (ex + math.cos(ang + 2.5) * 12, ey + math.sin(ang + 2.5) * 12),
+                       (ex + math.cos(ang - 2.5) * 12, ey + math.sin(ang - 2.5) * 12)]
+                pygame.draw.polygon(screen, (250, 210, 70), pts)
+                dist = int(math.hypot(dx, dy) / TILE)
+                draw_text(screen, lib, f"SUPPLY {dist}m", (ex, ey + (-24 if ey > 60 else 26)), 12, (250, 220, 120), center=True)
+
     def _draw_chat(self, screen, lib):
         now = time.time()
         w, h = screen.get_size()
@@ -326,7 +364,7 @@ class GameScreen:
         now = time.time()
         for pk in s.pickups:
             _id, kind, x, y = pk
-            img = lib.sprites["pickup_ammo" if kind == 0 else "pickup_medkit"]
+            img = lib.sprites["pickup_ammo" if kind == 0 else ("pickup_medkit" if kind == 1 else "pickup_supply")]
             bob = 3 * math.sin(self.t * 4 + _id)
             screen.blit(img, (x - cx - 32, y - cy - 32 + bob))
         for tg in s.telegraphs:
@@ -469,7 +507,9 @@ class App:
     def __init__(self, size=(SCREEN_W, SCREEN_H)):
         pygame.init()
         pygame.display.set_caption(GAME_NAME)
-        self.fullscreen = os.environ.get("SDL_VIDEODRIVER") != "dummy" and os.environ.get("TLS_WINDOWED") != "1"
+        self.settings = Settings()
+        self.fullscreen = (self.settings.fullscreen and os.environ.get("SDL_VIDEODRIVER") != "dummy"
+                           and os.environ.get("TLS_WINDOWED") != "1")
         flags = pygame.SCALED | (pygame.FULLSCREEN if self.fullscreen else pygame.RESIZABLE)
         try:
             self.screen = pygame.display.set_mode(size, flags)
@@ -478,7 +518,7 @@ class App:
             self.screen = pygame.display.set_mode(size, pygame.RESIZABLE)
         self.clock = pygame.time.Clock()
         self.lib = SpriteLibrary()
-        self.audio = Audio()
+        self.audio = Audio(self.settings)
         self.net = NetClient()
         self.server: Optional[GameServer] = None
         self.session: Optional[Session] = None
@@ -504,19 +544,21 @@ class App:
 
     # ----------------------------------------------------------- settings
     def _load_name(self) -> str:
-        try:
-            return json.loads((settings_dir() / "settings.json").read_text()).get("name", "Player")[:MAX_NAME_LEN] or "Player"
-        except (OSError, ValueError, AttributeError):
-            return "Player"
+        return self.settings.name
 
     def set_name(self, name: str) -> None:
         name = (name or "").strip()[:MAX_NAME_LEN] or "Player"
         self.player_name = name
+        self.settings.name = name
+        self.settings.save()
+
+    def toggle_fullscreen(self) -> None:
         try:
-            d = settings_dir()
-            d.mkdir(parents=True, exist_ok=True)
-            (d / "settings.json").write_text(json.dumps({"name": name}))
-        except OSError:
+            pygame.display.toggle_fullscreen()
+            self.fullscreen = not self.fullscreen
+            self.settings.fullscreen = self.fullscreen
+            self.settings.save()
+        except pygame.error:
             pass
 
     # ----------------------------------------------------------- navigation
@@ -702,8 +744,8 @@ class App:
             for e in pygame.event.get():
                 if e.type == pygame.QUIT:
                     self.running = False
-                elif e.type == pygame.KEYDOWN and e.key == pygame.K_F11:
-                    pygame.display.toggle_fullscreen()
+                elif e.type == pygame.KEYDOWN and e.key == self.settings.keys["fullscreen"] and not isinstance(self.scr, SettingsScreen):
+                    self.toggle_fullscreen()
                 elif e.type == pygame.VIDEORESIZE:
                     pass
                 else:
